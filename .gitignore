@@ -1,0 +1,51 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+
+# Node / web
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env and secrets (commit .env.example, never real values)
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.mobileprovision
+*.jks
+*.keystore
+google-services.json.local
+
+# iOS (the Xcode project is generated from project.yml)
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+xcuserdata/
+Pods/
+build/
+**/ios/Config/Local.xcconfig
+**/ios/Config/Info.plist
+
+# Android
+.gradle/
+.kotlin/
+local.properties
+captures/
+.cxx/
+
+# Supabase CLI state (the stack's containers and linked-project cache)
+**/supabase/.temp/
+**/supabase/.branches/
+
+# fastlane
+fastlane/report.xml
+fastlane/test_output/

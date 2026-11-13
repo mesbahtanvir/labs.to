@@ -1,0 +1,2 @@
+// Build settings for Release builds (TestFlight and the App Store).
+#include? "Local.xcconfig"

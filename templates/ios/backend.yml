@@ -1,0 +1,3 @@
+# Extra project spec merged into project.yml (arrays are appended, maps merged).
+# Empty here; a backend overlay replaces this file to add its packages.
+{}

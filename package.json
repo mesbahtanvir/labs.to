@@ -1,0 +1,23 @@
+{
+  "name": "labs.to",
+  "private": true,
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare": "node tooling/install-hooks.mjs",
+    "new": "node tooling/new-idea.mjs",
+    "verify": "node tooling/verify.mjs",
+    "scan": "node tooling/scan-secrets.mjs",
+    "validate": "node tooling/validate-ideas.mjs",
+    "plan": "node tooling/changed-apps.mjs --all",
+    "sb": "node tooling/sb.mjs",
+    "ios": "node tooling/ios.mjs",
+    "types": "node tooling/gen-types.mjs"
+  },
+  "devDependencies": {
+    "supabase": "2.105.0",
+    "yaml": "^2.9.1"
+  }
+}

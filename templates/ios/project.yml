@@ -1,0 +1,86 @@
+# Source of truth for the Xcode project. `pnpm verify` (and `xcodegen generate`)
+# builds Idea.xcodeproj from this file; the generated project is not committed,
+# so edit this file, never the project in Xcode's navigator.
+#
+# Targets and the scheme use fixed names (Idea, IdeaTests, IdeaUITests) in every
+# idea, so tooling never needs to know an idea's name. The name users see is
+# CFBundleDisplayName below.
+name: Idea
+
+include:
+  - path: backend.yml # packages and settings the backend overlay adds (empty without one)
+
+options:
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0" # Swift 6 language mode: strict concurrency checking
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    TARGETED_DEVICE_FAMILY: "1" # iPhone only; add "2" for iPad when an idea needs it
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Idea:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Config/Info.plist # generated from this spec, not tracked
+      properties:
+        CFBundleDisplayName: "{{title}}"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false # HTTPS-only apps are exempt; skips the TestFlight export prompt
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "{{bundle_id}}"
+
+  IdeaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/Unit
+    dependencies:
+      - target: Idea
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "{{bundle_id}}.tests"
+        GENERATE_INFOPLIST_FILE: YES
+
+  IdeaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/UI
+    dependencies:
+      - target: Idea
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "{{bundle_id}}.uitests"
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Idea:
+    build:
+      targets:
+        Idea: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - IdeaTests
+        - IdeaUITests
+    archive:
+      config: Release

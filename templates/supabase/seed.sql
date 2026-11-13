@@ -1,0 +1,2 @@
+-- Runs after migrations on `supabase db reset` (local only, never in production).
+-- Put stable fixture data here so local runs and tests start from the same state.

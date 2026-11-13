@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window theme, shown before Compose draws. MaterialTheme (Theme.kt) styles the content. -->
+    <style name="Theme.Idea" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

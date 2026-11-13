@@ -1,0 +1,9 @@
+# Copy to local.properties (git-ignored): cp local.properties.example local.properties
+# Android Studio keeps sdk.dir in that file too; leave it alone if it is already there.
+#
+# The local Publishable key, printed by: pnpm sb {{name}} status
+supabase.publishableKey=PASTE_THE_PUBLISHABLE_KEY_HERE
+
+# Debug builds call http://10.0.2.2:{{api_port}}, which is this computer as the emulator sees it.
+# On a USB device, run `adb reverse tcp:{{api_port}} tcp:{{api_port}}` and use:
+#supabase.url=http://127.0.0.1:{{api_port}}

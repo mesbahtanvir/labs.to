@@ -1,0 +1,6 @@
+# Read by kotlinter (ktlint). Indentation and line endings come from the repo root.
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+max_line_length = 120
+# Composable functions are named like types (HomeScreen), which ktlint would reject otherwise.
+ktlint_function_naming_ignore_when_annotated_with = Composable

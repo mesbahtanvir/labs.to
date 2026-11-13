@@ -1,0 +1,17 @@
+# Added by the supabase backend overlay: the client package, and the settings the
+# app reads its backend address from (Config/*.xcconfig, through Info.plist).
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    exactVersion: 2.55.6 # exact: bump deliberately, then regenerate types and re-verify
+
+targets:
+  Idea:
+    dependencies:
+      - package: Supabase
+    info:
+      properties:
+        SupabaseURL: $(SUPABASE_URL)
+        SupabasePublishableKey: $(SUPABASE_PUBLISHABLE_KEY)
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true # the local stack is plain http on 127.0.0.1

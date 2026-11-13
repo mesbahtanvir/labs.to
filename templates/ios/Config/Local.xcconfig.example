@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (git-ignored): cp Config/Local.xcconfig.example Config/Local.xcconfig
+//
+// Your Apple developer team, needed only to run on a real device or to upload:
+// DEVELOPMENT_TEAM = ABCDE12345

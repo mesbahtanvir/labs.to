@@ -1,0 +1,10 @@
+// Build settings for Debug builds (simulator and device).
+//
+// `http:/$()/` is how an xcconfig spells "http://" (a bare // starts a comment).
+// This idea's local Supabase stack listens on its own port block.
+SUPABASE_URL = http:/$()/127.0.0.1:{{api_port}}
+SUPABASE_PUBLISHABLE_KEY =
+
+// Per-machine values (the publishable key, a signing team) go in Local.xcconfig,
+// which is not tracked. Copy Local.xcconfig.example to start.
+#include? "Local.xcconfig"

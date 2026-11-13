@@ -1,0 +1,5 @@
+packages:
+  # Every idea's web project is a workspace package: apps/<idea>/web
+  - "apps/*/web"
+  # Shared web libraries (tokens, api clients, config, ...)
+  - "packages/web/*"

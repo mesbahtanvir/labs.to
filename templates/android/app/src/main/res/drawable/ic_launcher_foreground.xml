@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A lab flask. Replace with the idea's own icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,30 L62,30 L62,48 L76,74 A4,4 0,0 1 72.5,80 L35.5,80 A4,4 0,0 1 32,74 L46,48 Z" />
+</vector>

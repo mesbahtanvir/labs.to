@@ -1,0 +1,91 @@
+name: CI
+
+# Deliberately thin. Day-to-day validation runs on the maintainer's machine
+# (`pnpm verify`, enforced by the git hooks in .githooks/). This workflow is the
+# independent safety net for what must not depend on one laptop:
+#
+#   guard          manifests are valid and no secrets are committed (seconds)
+#   web, supabase  a clean-checkout re-run of the same `pnpm verify` checks,
+#                  only for ideas whose stage is `live`, and only when they changed
+#
+# iOS and Android are never built here (macOS minutes cost 10x). They are gated
+# by `pnpm verify` and the pre-push hook instead.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.plan.outputs.web }}
+      supabase: ${{ steps.plan.outputs.supabase }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      # Root package only (the tooling needs `yaml`), and no install scripts:
+      # this job never runs the Supabase CLI.
+      - run: pnpm install --frozen-lockfile --filter labs.to --ignore-scripts
+      - run: node tooling/validate-ideas.mjs
+      - run: node tooling/scan-secrets.mjs
+      - id: plan
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: node tooling/changed-apps.mjs --base "$BASE_SHA" --stages live
+
+  web:
+    name: web / ${{ matrix.app.idea }}
+    needs: guard
+    if: needs.guard.outputs.web != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.guard.outputs.web) }}
+    uses: ./.github/workflows/_web.yml
+    with:
+      idea: ${{ matrix.app.idea }}
+
+  supabase:
+    name: supabase / ${{ matrix.app.idea }}
+    needs: guard
+    if: needs.guard.outputs.supabase != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.guard.outputs.supabase) }}
+    uses: ./.github/workflows/_supabase.yml
+    with:
+      idea: ${{ matrix.app.idea }}
+
+  # Single required status check for branch protection. The matrix jobs above
+  # vary per run (and are often skipped), so protect "ci-ok" instead of each one.
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [guard, web, supabase]
+    runs-on: ubuntu-latest
+    env:
+      FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+    steps:
+      - run: |
+          if [ "$FAILED" = "true" ]; then
+            echo "A required job failed or was cancelled."
+            exit 1
+          fi

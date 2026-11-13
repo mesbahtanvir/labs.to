@@ -1,0 +1,7 @@
+// Copy to Local.xcconfig (git-ignored): cp Config/Local.xcconfig.example Config/Local.xcconfig
+//
+// The local Publishable key, printed by: pnpm sb {{name}} status
+SUPABASE_PUBLISHABLE_KEY = PASTE_THE_PUBLISHABLE_KEY_HERE
+
+// Your Apple developer team, needed only to run on a real device or to upload:
+// DEVELOPMENT_TEAM = ABCDE12345

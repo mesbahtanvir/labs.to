@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The local Supabase stack is plain http. Debug builds only: release builds keep the secure default. -->
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

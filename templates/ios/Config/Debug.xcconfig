@@ -1,0 +1,4 @@
+// Build settings for Debug builds (simulator and device).
+// Per-machine values, such as a signing team, go in Local.xcconfig, which is not
+// tracked. Copy Local.xcconfig.example to start.
+#include? "Local.xcconfig"

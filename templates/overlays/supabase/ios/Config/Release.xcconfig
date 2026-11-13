@@ -1,0 +1,8 @@
+// Build settings for Release builds (TestFlight and the App Store).
+//
+// Fill these in when the idea gets a hosted Supabase project (stage alpha):
+// the project URL (spelled https:/$()/<ref>.supabase.co) and its publishable key.
+SUPABASE_URL =
+SUPABASE_PUBLISHABLE_KEY =
+
+#include? "Local.xcconfig"

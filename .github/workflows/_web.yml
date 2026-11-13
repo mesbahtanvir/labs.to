@@ -1,0 +1,33 @@
+name: web (reusable)
+
+# Clean-checkout re-run of one idea's web checks. It calls the same
+# `pnpm verify` the maintainer runs locally, so there is one definition of
+# "web checks pass". Called by ci.yml for live ideas only.
+
+on:
+  workflow_call:
+    inputs:
+      idea:
+        description: Idea name (apps/<idea>)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      IDEA: ${{ inputs.idea }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tooling/verify.mjs "$IDEA" --only web --no-stamp

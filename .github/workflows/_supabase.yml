@@ -1,0 +1,35 @@
+name: supabase (reusable)
+
+# Clean-checkout re-run of one idea's backend checks: migrations apply from
+# scratch, pgTAP tests (including the RLS guard rails) pass, the schema lints
+# clean, and the committed client types match. Same `pnpm verify` as local.
+# Called by ci.yml for live ideas only, when their backend changed.
+
+on:
+  workflow_call:
+    inputs:
+      idea:
+        description: Idea name (apps/<idea>)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest # has Docker, which the local Supabase stack needs
+    timeout-minutes: 20
+    env:
+      IDEA: ${{ inputs.idea }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      # With install scripts: this is what downloads the pinned Supabase CLI binary.
+      - run: pnpm install --frozen-lockfile
+      - run: node tooling/verify.mjs "$IDEA" --only supabase --no-stamp
