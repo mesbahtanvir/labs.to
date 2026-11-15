@@ -49,3 +49,6 @@ captures/
 # fastlane
 fastlane/report.xml
 fastlane/test_output/
+
+# Vercel (a manual `vercel link` in an app folder would create this; releases use their own export)
+.vercel/

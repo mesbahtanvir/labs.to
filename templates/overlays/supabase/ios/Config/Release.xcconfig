@@ -1,8 +1,13 @@
 // Build settings for Release builds (TestFlight and the App Store).
 //
-// Fill these in when the idea gets a hosted Supabase project (stage alpha):
-// the project URL (spelled https:/$()/<ref>.supabase.co) and its publishable key.
+// The hosted Supabase project, once the idea has one (stage alpha): its URL (spelled
+// https:/$()/<ref>.supabase.co, since a bare // starts a comment) and its publishable key.
+// Both are public by design (row level security protects the data, not the key), so they
+// are tracked here. `pnpm release` refuses to ship while they are empty or local.
+//
+// Local.xcconfig comes first: it can supply the signing team, but the two values below
+// win over it, so the local stack's key can never end up in a release.
+#include? "Local.xcconfig"
+
 SUPABASE_URL =
 SUPABASE_PUBLISHABLE_KEY =
-
-#include? "Local.xcconfig"

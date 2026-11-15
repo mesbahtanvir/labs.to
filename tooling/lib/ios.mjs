@@ -14,6 +14,9 @@ import { run } from "./exec.mjs";
 
 export const SIM_NAME = "labs-verify";
 
+// Shared by every idea: each Swift package is cloned once, not once per idea.
+export const PACKAGES_DIR = join(CACHE_ROOT, "SourcePackages");
+
 // First match wins; otherwise any iPhone the runtime supports.
 const PREFERRED_DEVICES = ["iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16"];
 
@@ -138,7 +141,7 @@ export function shutdownVerifySimulators() {
  * errors, failed expectations, the list of failing tests), without Xcode's own
  * [MT] chatter, and fall back to the end of the log when nothing matches.
  */
-function summarize(out) {
+export function summarize(out) {
   const lines = out.split("\n").filter((l) => l.trim() && !/\[MT\]|the following command failed|^\s*[|`]/.test(l));
   const wanted = lines.filter(
     (l) => /error:|warning:|✘ Test .*recorded an issue|Failing tests:|^\tLaunchTests|^\t\w+\.\w+\(|\.xcresult$|\*\* .* FAILED \*\*/.test(l),
@@ -155,9 +158,8 @@ function summarize(out) {
  */
 export function xcodebuild({ idea, dir, udid, action }) {
   const derived = join(CACHE_ROOT, "ios", idea, "DerivedData");
-  const packages = join(CACHE_ROOT, "SourcePackages"); // shared: each package is cloned once, not once per idea
   mkdirSync(derived, { recursive: true });
-  mkdirSync(packages, { recursive: true });
+  mkdirSync(PACKAGES_DIR, { recursive: true });
 
   const args = [
     action,
@@ -165,7 +167,7 @@ export function xcodebuild({ idea, dir, udid, action }) {
     "-scheme", "Idea",
     "-destination", `platform=iOS Simulator,id=${udid}`,
     "-derivedDataPath", derived,
-    "-clonedSourcePackagesDirPath", packages,
+    "-clonedSourcePackagesDirPath", PACKAGES_DIR,
   ];
   // Quiet hides the noise of a build, but a quiet test run names the failing
   // tests without saying why. Keep the test log: it is small, and failures need it.

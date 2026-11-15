@@ -28,6 +28,9 @@ export const TYPE_TARGETS = {
 export const ACTIVE_STAGES = ["prototype", "alpha", "live"];
 // Tests are a required gate from `alpha` on. Prototypes only lint, typecheck and build.
 export const TEST_STAGES = ["alpha", "live"];
+// `pnpm release` ships to testers and users, which costs money and is visible to others,
+// so a prototype can not be released. Promote it first.
+export const RELEASE_STAGES = ["alpha", "live"];
 
 const KNOWN_KEYS = ["name", "title", "stage", "platforms", "backend", "owner", "bundle_id"];
 const NAME_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;

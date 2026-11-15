@@ -26,7 +26,7 @@ settings:
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     GCC_TREAT_WARNINGS_AS_ERRORS: YES
     TARGETED_DEVICE_FAMILY: "1" # iPhone only; add "2" for iPad when an idea needs it
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.1.0" # pnpm release overrides both at build time, from the tag and the commit count
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -39,6 +39,10 @@ targets:
       path: Config/Info.plist # generated from this spec, not tracked
       properties:
         CFBundleDisplayName: "{{title}}"
+        # XcodeGen would write a literal 1.0 and 1 here, which makes MARKETING_VERSION and
+        # CURRENT_PROJECT_VERSION (and so `pnpm release`) have no effect.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false # HTTPS-only apps are exempt; skips the TestFlight export prompt
