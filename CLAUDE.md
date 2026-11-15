@@ -22,7 +22,14 @@ that keep it uniform.
   in a workflow, script or config. Anything that needs the list of ideas reads the
   manifests through `tooling/lib/manifest.mjs`.
 - **Never add per-idea workflows.** CI is `ci.yml` plus reusable `_<kind>.yml`
-  workflows that call `pnpm verify`. There is one definition of "checks pass".
+  workflows that call `pnpm verify`. There is one definition of "checks pass". The one
+  other workflow is `release.yml`, which only turns a pushed release tag into a GitHub
+  Release. **GitHub holds no secrets:** no workflow reads `secrets.*` (a test enforces it)
+  and deploys run from this machine through `pnpm release`. Moving a deploy onto GitHub is a
+  decision for the user, not a convenience to slip in.
+- **Project skills live in `.claude/skills/`** (`setup`, `new-idea`, `try-locally`, `ship`).
+  Use them for those jobs, and when a command or rule here changes, update the skill that
+  mentions it (a test fails if a skill names a `pnpm` script that does not exist).
 - **Platform folders are self-contained.** `apps/<idea>/web`, `ios` and `android`
   must not import from each other. Share through `packages/<platform>/` (code for
   one platform) or generated types and tokens (across platforms).
@@ -51,11 +58,26 @@ that keep it uniform.
   before bumping AGP or Gradle (they move together). Per-machine values (the local key,
   a LAN address) go in the untracked `local.properties`. Kotlin models of the schema are
   written by hand in `:backend`: update them in the same change as the migration.
+- **Releases are `pnpm release <idea> <platform>`, never by hand.** The version is the tag
+  `<idea>/<platform>/vX.Y.Z` and the build number is the commit count, so never edit
+  `MARKETING_VERSION` or a version code to cut a release, and never create or push such a tag
+  yourself. Never upload to App Store Connect or a store outside it. Only `alpha` and `live`
+  ideas release. Do not work around a blocker it reports: fix the cause (verify, push, stage).
+- **Signing material never enters the repo or the output.** The App Store Connect key comes from
+  the environment or the git-ignored `.env.labs` (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH` or
+  `ASC_KEY_OP_REF`), the team from `Config/Local.xcconfig` or `LABS_APPLE_TEAM_ID`; the Vercel token is
+  `VERCEL_TOKEN` (an `op://` reference is best), with `VERCEL_TEAM_ID` for a team. `pnpm doctor`
+  shows what is set, by name only. Do not read `.env.labs`, a `.p8` or a 1Password item to look
+  at a value, do not ask the user to paste one into the chat, and do not print or log them. A Release
+  build gets its backend from `Config/Release.xcconfig` (hosted URL and publishable key, which
+  are public), never from `Local.xcconfig`.
 - **Backend-specific template changes go in `templates/overlays/supabase/<platform>/`**,
   not into the base platform template, so `--backend none` stays clean.
-- **Secrets never enter the repo.** Only `.env.example` is tracked. Put secret keys in
-  the macOS Keychain or a password manager. If the scanner flags a deliberate false
-  positive, mark that line with `labs:allow-secret`.
+- **Secrets never enter the repo.** Only `.env.example` is tracked (it lists exactly the
+  variables the tooling reads, all empty; a test keeps it in step with `tooling/lib/env.mjs`).
+  This machine's values go in the git-ignored `.env.labs` (`pnpm doctor --init`), with secret
+  keys in the macOS Keychain or a password manager and only a path or `op://` reference in
+  the file. If the scanner flags a deliberate false positive, mark that line with `labs:allow-secret`.
 - **Never stop containers that belong to other projects on this machine.** Other
   local Supabase stacks run here. Only touch `<idea>` and `<idea>-verify` stacks. The
   same goes for simulators and emulators: the user's own are theirs; only the iOS
@@ -70,6 +92,10 @@ pnpm verify [idea...] [--all] [--keep] [--cleanup]   # the local gate; writes th
 pnpm sb <idea> start|stop|status|db reset|test db|... # pinned Supabase CLI for one idea
 pnpm types <idea> [--check]                          # client types from the dev stack's schema
 pnpm ios <idea> [open|generate]                      # generate the Xcode project from project.yml, open it
+pnpm release <idea> ios|web [--dry-run] [--bump minor|--version X.Y.Z]   # TestFlight or Vercel, from this machine
+pnpm doctor [--for ios|web] [--init]                 # tools and .env.labs: what is missing, by name; --init creates .env.labs
+node tooling/release-notes.mjs <tag>                 # what the GitHub Release for a release tag would say
+pnpm test                                            # the tooling's own unit tests (part of verify)
 (cd apps/<idea>/android && ./gradlew <task>)         # Android builds are plain Gradle (assembleDebug, lintKotlin, ...)
 pnpm scan [--staged]                                 # secrets scan
 pnpm validate                                        # check every idea.yaml
@@ -99,9 +125,28 @@ compiler warning and a formatting violation, and confirm `verify` fails each tim
 is up; `pnpm verify --cleanup` stops the verify simulator). Dependency pins (TypeScript, ESLint, the Supabase CLI) exist for
 compatibility reasons; read the Decisions in `README.md` before bumping them.
 
+A change to `pnpm release` is rehearsed in a scratch clone, never in this repository: clone
+into a scratch folder with its own bare `origin`, generate an `alpha` sample, commit, verify
+and push there, and put test doubles of `xcodebuild -exportArchive` and `op` first on `PATH`.
+Then try to break it: a dirty tree, an unverified commit, a commit not on `origin/main`, a
+branch other than `main`, a `prototype` idea, a tag that exists only on origin, missing
+credentials, and a failing upload (no tag may be created, and no temporary key may be left).
+Never run a real release, or push a release tag to GitHub, as a test. A web release is
+rehearsed against a stand-in Vercel API on loopback (`VERCEL_API_URL=http://127.0.0.1:<port>`, honoured
+only for loopback): the real `vercel` CLI and the project calls run against it, with a fake
+token. Break it too: a failing deploy (no tag), no token (blocked before any API call), a project whose
+settings drifted (corrected), a Supabase idea whose environment is empty or local (blocked before the
+build), and an untracked `.env.local` (it must not reach the export). The same scratch clone
+rehearses `pnpm doctor`, `.env.labs` (loose permissions, a malformed line, a shell variable
+overriding the file) and `tooling/release-notes.mjs` (a tag that is not on main, a tag that is
+not a release tag, a lightweight tag), and a test double of `gh` stands in for GitHub.
+
 ## Not built yet
 
-Releases and deploys (including iOS and Android device builds, signing, TestFlight and
-the Play tracks), hosted Supabase environments, design tokens, end-to-end flows. Do not pretend otherwise in docs, and
+Releases of Android (device builds, signing, the Play tracks), hosted Supabase environments,
+design tokens, end-to-end flows. iOS releases to TestFlight exist but have never been run against
+Apple for real, web releases to Vercel exist but have never been run against the real Vercel
+(only a stand-in API), and `release.yml` has never run on GitHub. Do not
+pretend otherwise in docs, and
 do not list an unsupported platform in a manifest (the generator refuses, and
 `verify` fails).

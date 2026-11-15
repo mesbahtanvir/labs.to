@@ -14,6 +14,9 @@
     "plan": "node tooling/changed-apps.mjs --all",
     "sb": "node tooling/sb.mjs",
     "ios": "node tooling/ios.mjs",
+    "release": "node tooling/release.mjs",
+    "doctor": "node tooling/doctor.mjs",
+    "test": "node --test \"tooling/**/*.test.mjs\"",
     "types": "node tooling/gen-types.mjs"
   },
   "devDependencies": {

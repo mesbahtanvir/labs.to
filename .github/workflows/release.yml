@@ -1,0 +1,54 @@
+name: release
+
+# Bookkeeping, not delivery. `pnpm release <idea> <platform>` ships from the maintainer's
+# machine (build, sign, upload, then tag) and pushes the tag <idea>/<platform>/vX.Y.Z.
+# This workflow turns that tag into a GitHub Release, with notes from the commits that
+# touched the idea since its previous release, so GitHub shows what landed where and when.
+#
+# It builds nothing, deploys nothing and holds no secrets: the only credential is the
+# built-in GITHUB_TOKEN. It also refuses a tag that is not on main, since that means the
+# tag was not made by `pnpm release`. A few seconds of Linux time per release.
+
+on:
+  push:
+    tags: ["*/*/v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # to create the release; nothing else
+
+jobs:
+  github-release:
+    name: github release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the notes read the history, and the main check needs origin/main
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      # Root package only (the tooling needs `yaml`), and no install scripts.
+      - run: pnpm install --frozen-lockfile --filter labs.to --ignore-scripts
+      - id: notes
+        run: node tooling/release-notes.mjs "$GITHUB_REF_NAME" --out "$RUNNER_TEMP/notes.md"
+      - name: create the release
+        if: steps.notes.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.notes.outputs.title }}
+          PRERELEASE: ${{ steps.notes.outputs.prerelease }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "A release for $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
+          flags=(--latest=false) # many ideas share this repository; none of them is "the latest"
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"

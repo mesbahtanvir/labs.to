@@ -163,6 +163,7 @@ step("workspace", "secrets", () => {
   const findings = findSecrets({ files: listFiles() });
   return { ok: findings.length === 0, out: findings.map((f) => `${f.file}${f.line ? `:${f.line}` : ""}  ${f.rule}`).join("\n") };
 });
+step("workspace", "tooling tests", () => run("pnpm", ["test"], { cwd: ROOT })); // version, tag and release-settings logic: seconds, no devices
 if (failedUnits.size > 0) finish(treeBefore, scope);
 
 const plan = computePlan({ base, only: positionals.length > 0 ? positionals : null });
