@@ -17,7 +17,16 @@ that keep it uniform.
 ## Rules
 
 - **A new idea is created with `pnpm new <name>`, never by hand.** The generator
-  guarantees the layout, manifest and template that tooling expects.
+  guarantees the layout, manifest and template that tooling expects. A spark
+  (`--stage spark`) is created without platforms: its code arrives with `pnpm grow`.
+- **An idea that exists grows with `pnpm grow <idea>`, never by hand.** A platform
+  (`--platforms`) or a backend (`--backend supabase`) is not added by copying `templates/` or
+  by listing it in `idea.yaml` yourself: the command stamps out the same files `pnpm new` would
+  have, claims the port block, applies the overlays and updates the manifest (a spark becomes a
+  prototype with its first platform). It never overwrites a platform folder. If it refuses
+  because the backend overlay would replace an edited file, `--force` is the user's decision,
+  not a way past the message. Both commands share `tooling/lib/scaffold.mjs`: change the
+  stamping there, never in one command.
 - **Every idea is its own Spec Kit project, and a feature starts as a spec.** `pnpm new` installs
   the kit in `apps/<idea>/` (`.specify/`, `.claude/skills/speckit-*`) and writes the idea's
   constitution. A change in behavior goes through that idea's `speckit-specify`, `speckit-plan`,
@@ -82,7 +91,9 @@ that keep it uniform.
   build gets its backend from `Config/Release.xcconfig` (hosted URL and publishable key, which
   are public), never from `Local.xcconfig`.
 - **Backend-specific template changes go in `templates/overlays/supabase/<platform>/`**,
-  not into the base platform template, so `--backend none` stays clean.
+  not into the base platform template, so `--backend none` stays clean. Prefer an overlay file
+  that is new to one that replaces a base file: `pnpm grow --backend` has to write a replacing
+  file over an existing app, and refuses when that file was edited.
 - **Secrets never enter the repo.** Only `.env.example` is tracked (it lists exactly the
   variables the tooling reads, all empty; a test keeps it in step with `tooling/lib/env.mjs`).
   This machine's values go in the git-ignored `.env.labs` (`pnpm doctor --init`), with secret
@@ -98,6 +109,7 @@ that keep it uniform.
 
 ```bash
 pnpm new <name> [--platforms web,ios,android] [--stage prototype] [--backend supabase|none] [--title "Name"]
+pnpm grow <idea> [--platforms ios,android] [--backend supabase] [--force]   # add platforms or the backend to an idea that exists
 pnpm verify [idea...] [--all] [--keep] [--cleanup]   # the local gate; writes the stamp on success
 pnpm sb <idea> start|stop|status|db reset|test db|... # pinned Supabase CLI for one idea
 pnpm types <idea> [--check]                          # client types from the dev stack's schema
@@ -133,9 +145,16 @@ emulator). Also try to break it: a table without RLS, a type error, a stale-type
 migration, and for each mobile platform a failing unit test, a failing UI test, a
 compiler warning and a formatting violation, and for Spec Kit an idea without `.specify/`, a
 constitution left as the unfilled template and a hand-edited file in `templates/speckit/kit/`,
-and confirm `verify` fails each time. Restore mutated files with a checksum-based copy
+and confirm `verify` fails each time. A change to how the Supabase CLI is run
+(`tooling/lib/exec.mjs`, `watch.mjs`, `supabase.mjs`) is also rehearsed with a CLI that stalls:
+point `SUPABASE_CLI_BINARY_OVERRIDE` (read by the CLI's own launcher) at a script that prints
+and never exits for one command and runs the real binary otherwise; verify must give up on it,
+run it once more and say so, and fail when it stalls twice. Restore mutated files with a checksum-based copy
 (`rsync -ac`), since a same-second, same-size edit can look unchanged to a plain
-`rsync`. Then delete the sample (`pnpm sb sample-idea stop --no-backup` if a dev stack
+`rsync`. A change to the stamping (`tooling/lib/scaffold.mjs`, `pnpm new`, `pnpm grow`) is also
+rehearsed by growing: a spark sample that gets `web`, then `ios,android`, and a `--backend none`
+sample that gets `--backend supabase`, each passing `pnpm verify`, and a platform that exists
+being refused. Then delete the sample (`pnpm sb sample-idea stop --no-backup` if a dev stack
 is up; `pnpm verify --cleanup` stops the verify simulator). Dependency pins (TypeScript, ESLint, the Supabase CLI) exist for
 compatibility reasons; read the Decisions in `README.md` before bumping them.
 

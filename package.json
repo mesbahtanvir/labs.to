@@ -8,6 +8,7 @@
   "scripts": {
     "prepare": "node tooling/install-hooks.mjs",
     "new": "node tooling/new-idea.mjs",
+    "grow": "node tooling/grow-idea.mjs",
     "verify": "node tooling/verify.mjs",
     "scan": "node tooling/scan-secrets.mjs",
     "validate": "node tooling/validate-ideas.mjs",

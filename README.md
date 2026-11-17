@@ -26,7 +26,7 @@ apps/<idea>/
   ios/             SwiftUI app; project.yml (XcodeGen) is the source of the Xcode project
   android/         Jetpack Compose app (Gradle); :app, plus :backend when there is a backend
 packages/<platform>/   code shared across ideas on one platform
-templates/<platform>/  what `pnpm new` stamps out (overlays/ add backend-specific files)
+templates/<platform>/  what `pnpm new` and `pnpm grow` stamp out (overlays/ add backend-specific files)
 templates/speckit/     the Spec Kit files every idea gets (kit/, generated) and our constitution
 tooling/               generator, verify, release, doctor, planner, secrets scanner, Supabase wrappers
 .githooks/             pre-commit and pre-push, installed by `pnpm install`
@@ -42,6 +42,7 @@ pnpm doctor --init       once per machine: creates .env.labs; fill in the iOS li
 pnpm doctor --for ios    says what is still missing, by name (never a value)
 
 pnpm new my-idea         start an idea (it is a Spec Kit project from the first minute)
+pnpm grow my-idea --platforms ios      later: add a platform, or the backend, to an idea that exists
 (spec it)                in Claude, from apps/my-idea: /speckit-specify, -plan, -tasks, -implement
 (try it)                 pnpm sb my-idea start, pnpm --filter @labs/my-idea-web dev, pnpm ios my-idea
 pnpm verify my-idea      the gate; push when it passes (the hook checks)
@@ -62,6 +63,10 @@ pnpm new my-idea --platforms web,ios,android   # any mix of platforms
 pnpm new my-idea --stage spark            # idea.md and Spec Kit, no code
 pnpm new my-idea --backend none           # no Supabase (default is supabase)
 ```
+
+A name is kebab-case: lowercase letters and digits with one hyphen between words, 3 to 40
+characters, starting with a letter. A spark is an idea on paper, so `--stage spark` takes no
+`--platforms` (asking for both is refused); its code arrives later, with `pnpm grow`.
 
 With the Supabase backend, the idea has its own local dev stack (needs Docker):
 
@@ -100,6 +105,34 @@ Everything lives in Gradle, so there is no generated project to protect. Version
 pinned in `gradle/libs.versions.toml` and `gradle/wrapper/`.
 
 Fill in `apps/my-idea/idea.md`, specify the first feature, build it, then verify and push.
+
+### Grow an idea that exists
+
+`pnpm new` refuses a folder that exists. An idea gets more platforms, or its backend, with
+`pnpm grow`, which stamps out the same files `pnpm new` would have and keeps `idea.yaml` in step:
+
+```bash
+pnpm grow my-idea --platforms web           # a spark's first platform: it becomes a prototype
+pnpm grow my-idea --platforms ios,android   # more platforms, with the backend's files if it has one
+pnpm grow my-idea --backend supabase        # a backend for an idea created with --backend none
+pnpm install                                # when web was added, or web got the backend
+```
+
+- **A platform folder that exists is refused**, never overwritten, and nothing is written unless
+  everything asked for can be.
+- **A backend that arrives later** gets `apps/my-idea/supabase/` on a free block of local ports,
+  and its files are layered over the platforms the idea already has. Most are new files. The few
+  it replaces (on iOS, `backend.yml` and the `Config/*.xcconfig` files) are replaced only while
+  they are still what the template wrote. If you edited one, the command lists it and stops;
+  `--force` replaces it anyway, and `git diff` shows what to put back.
+- **A spark's `backend` is only a declaration.** Its `supabase/` folder arrives with its first
+  platform, which is also when `stage` goes from `spark` to `prototype`.
+- **A platform added to an idea whose schema has moved on** starts with the template's client
+  types and models. The command says so: run `pnpm types my-idea`, and update the Kotlin models
+  by hand.
+
+It only adds: there is no command to take a platform or a backend away. It is `grow` rather
+than `add` because `pnpm add` is pnpm's own command for installing a dependency.
 
 ## Spec, then build
 
@@ -147,7 +180,7 @@ pnpm scan                   # secrets scan on its own
 
 `verify` runs: frozen-lockfile install, manifests (which includes that every idea is a
 Spec Kit project with a filled-in constitution), secrets scan, the tooling's own unit
-tests (`pnpm test`, under a second), then per idea
+tests (`pnpm test`, a few seconds), then per idea
 the backend (migrations apply from scratch, pgTAP tests, schema lint, client
 types up to date), the web app (typecheck, lint, test, build), the iOS app
 (generate project, swift-format, build, unit and UI tests on a simulator) and the
@@ -183,6 +216,10 @@ the maintainer's machine was busy.
   you have open is left alone. The AVD takes about 5 GB (`~/.android/avd/labs-verify.avd`,
   mostly its quick-boot snapshot); remove it any time with
   `avdmanager delete avd -n labs-verify` and the next run recreates it.
+- **A Supabase CLI command that goes quiet is given up on.** If one prints nothing for 150
+  seconds, verify kills it with the processes it started and runs it once more. A second run
+  that passes is reported on the step's line (`... stalled once ... and passed when run
+  again`); one that stalls again fails the step. A command that fails is never run again.
 - **A passing full-scope run writes a stamp** keyed to the git tree hash of the
   exact files verified, stored in `.git/labs-verified/`. Any content change,
   including a rebase that pulls in someone else's work, invalidates it.
@@ -290,7 +327,7 @@ rediscover it. They call the same commands you do, and the rules in `CLAUDE.md` 
 | skill         | for                                                                          |
 | ------------- | ---------------------------------------------------------------------------- |
 | `setup`       | this machine: doctor, `.env.labs`, the App Store Connect key                 |
-| `new-idea`    | `pnpm new`, then `idea.md`                                                    |
+| `new-idea`    | `pnpm new` (`pnpm grow` for an idea that exists), then `idea.md`              |
 | `build-feature` | a feature, spec first, through the idea's own Spec Kit, then verify        |
 | `try-locally` | run an idea (backend, web, iOS, Android) so you can look at it, then verify  |
 | `ship`        | doctor, verify, dry run, then the real release, with your yes before upload  |
@@ -315,7 +352,8 @@ on GitHub.
 | `live`      | real users                           | guard + clean-checkout re-run of web and backend checks |
 | `archived`  | parked                               | nothing                              |
 
-Promote an idea by editing `stage` in a PR.
+Promote an idea by editing `stage` in a PR. The one promotion a command makes is `spark` to
+`prototype`, when `pnpm grow` gives a spark its first platform.
 
 ## What runs on GitHub
 
@@ -355,7 +393,7 @@ pre-push hook.
   what must not depend on one laptop. Optimizes for cost and for fast iteration.
 - **Native per platform, not a cross-platform framework.** Best platform fidelity
   and no framework lock-in. The cost is implementing each feature per platform,
-  which is why ideas start web-only and add platforms when they earn it.
+  which is why ideas start web-only and add platforms when they earn it (`pnpm grow`).
 - **What is shared:** the manifest, verify and release machinery, templates, and
   (planned) design tokens. Not UI code.
 - **Every idea is its own Spec Kit project.** Spec Kit treats the nearest folder with a
@@ -389,14 +427,33 @@ pre-push hook.
   free plan allows only 2 active projects, so hosted projects should start at
   `alpha`, not at `prototype`. Prototypes run on the local stack only.
 - **Local stacks use ports 44320-49151**, one block of 10 per idea, allocated in
-  order by `pnpm new`. Supabase's defaults collide with other local Supabase
-  projects on the same machine. Verify stacks sit exactly 2000 below.
+  order by `pnpm new` (or by `pnpm grow`, when the backend arrives later). Supabase's
+  defaults collide with other local Supabase projects on the same machine. Verify stacks
+  sit exactly 2000 below.
+- **One module stamps out ideas, for both commands.** `pnpm new` and `pnpm grow` share
+  `tooling/lib/scaffold.mjs`, and a test grows a spark one platform at a time, then gives an
+  idea its backend late, and compares the result file by file with the same idea created
+  whole. So "added later" can not drift from "there from the start". The only file
+  `pnpm grow` merges into is a `package.json` (the backend's dependencies); every other
+  file it writes as the template does, or refuses.
 - **The Supabase CLI is pinned to exactly 2.105.0.** `config.toml` keys are tied to
   the CLI version (2.105.0 rejected a config written by 3.0.0), so the template
   config and the pinned CLI must come from the same version. 3.0.0 also hung on
   `start` on the maintainer's machine, while 2.105.0 is what their other projects
   already run. Upgrade deliberately: bump the pin, regenerate
   `templates/supabase/config.toml` with `supabase init`, re-verify.
+- **Supabase CLI commands run under a watchdog, with one retry for a stall only.** The pinned
+  CLI twice went quiet in the middle of a command and never exited (see Known gaps), and each
+  time verify sat for the 15 minutes a step is allowed by default. `tooling/lib/watch.mjs` now runs
+  the CLI, passes its output through, and kills it and its child processes after 150 seconds
+  of silence: a healthy `start` or `db reset` is silent for about 10 seconds at a time, and a
+  start slowed to 85 seconds by a machine with every core busy still printed well within a
+  minute. It is a separate process because the step runner is synchronous (`spawnSync`), which
+  can only wait for a fixed time, kills only the launcher at the top of the CLI's three
+  processes, and keeps waiting while anything holds the output open. The stalled command is
+  run once more because both real stalls passed when run again and every command verify uses
+  can be repeated; a command that exits with a failure is never retried, so a red check stays
+  red. A step that needed the second run says so, so a CLI that stalls often is noticed.
 - **iOS: the Xcode project is generated, not committed.** `project.yml` (XcodeGen)
   is the source, so there are no `.pbxproj` merge conflicts and an agent can edit
   the project as plain text. Targets and the scheme have fixed names (`Idea`,
@@ -500,8 +557,25 @@ pre-push hook.
   this repository yet: what ran is the generator, Spec Kit's own scripts inside a generated
   idea (they resolve the idea folder as the project, from the idea and from the root), and
   Claude Code discovering the idea's skills.
-- There is no command to add a platform or a backend to an existing idea, or to turn a spark
-  into a prototype: `pnpm new` refuses a folder that exists, so that step is still by hand.
+- `pnpm grow` only adds. Taking a platform or a backend away is still by hand (delete the
+  folder, edit `idea.yaml`, and for web run `pnpm install`). It also stamps out today's
+  templates: a platform added to an old idea is newer than its siblings, and its client types,
+  models and sample code are for the template's starter schema until `pnpm types` and a hand
+  edit bring them to the idea's own. Port blocks are allocated from the `apps/` of the checkout
+  the command runs in, as with `pnpm new`, so two worktrees can hand out the same block.
+- Why the Supabase CLI stalls is not known. Twice on 2026-11-17, on a busy machine, it went
+  quiet mid-command (`start` right after "Started supabase local development setup.",
+  `db reset` right after "Seeding globals from roles.sql...") and never exited. The CLI is a
+  node launcher, a shim, and the Go program that does the work; its own trace
+  (`~/.supabase/traces/`) recorded both commands as `error`. The only way found to make it
+  record that is to end the Go program with a signal (a command that merely fails leaves no
+  entry), so the Go program most likely died from a signal both times, and nothing in this
+  repository sends one. But every such death that could be provoked (kill, hang-up, a closed
+  output pipe) made the shim print `ChildProcess.exitCode` and exit at once. A shim that
+  stays silent and alive was never reproduced: not in 5 more rounds of start, two resets,
+  tests and stop (2 of them with every core busy), and not in any run since. So verify does
+  not prevent the stall: it gives up on the command after 150 seconds, runs it once more and
+  says so (see Decisions). `pnpm sb` is not watched: a stall there is yours to interrupt.
 - Secrets scanning covers the current tree, not git history.
 - `pre-push` can be bypassed with `--no-verify`.
 - iOS verification covers the simulator only, with no end-to-end flow against the
@@ -545,3 +619,4 @@ pre-push hook.
    - Android to the Play internal track
 6. Design tokens shared across platforms; end-to-end flows (Playwright, Maestro)
 7. ~~Spec Kit in every idea (`pnpm new` installs it; `pnpm speckit` keeps it current)~~ (done)
+8. ~~Grow an idea that exists (`pnpm grow`: more platforms, a backend later, spark to prototype)~~ (done)
