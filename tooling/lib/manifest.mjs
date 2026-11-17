@@ -67,6 +67,10 @@ export function defaultBundleId(name) {
   return `to.labs.${name.replaceAll("-", "")}`;
 }
 
+export function isValidBundleId(id) {
+  return typeof id === "string" && BUNDLE_RE.test(id);
+}
+
 export function loadIdeas() {
   if (!existsSync(APPS_DIR)) return [];
   return readdirSync(APPS_DIR, { withFileTypes: true })
@@ -74,8 +78,8 @@ export function loadIdeas() {
     .map((e) => loadIdea(e.name));
 }
 
-export function loadIdea(dirName) {
-  const dir = join(APPS_DIR, dirName);
+export function loadIdea(dirName, appsDir = APPS_DIR) {
+  const dir = join(appsDir, dirName);
   const file = join(dir, "idea.yaml");
   const errors = [];
   let manifest = null;
@@ -139,7 +143,7 @@ export function validateManifest(m, dirName, dir) {
       }
     }
     if (platforms.some((p) => p === "ios" || p === "android")) {
-      if (typeof m.bundle_id !== "string" || !BUNDLE_RE.test(m.bundle_id)) {
+      if (!isValidBundleId(m.bundle_id)) {
         errors.push(`bundle_id must be reverse-DNS like to.labs.myidea (got ${JSON.stringify(m.bundle_id)})`);
       }
     }
