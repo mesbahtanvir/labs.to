@@ -50,5 +50,9 @@ captures/
 fastlane/report.xml
 fastlane/test_output/
 
+# Claude Code and Spec Kit: per-machine state. The skills (.claude/skills/) and each idea's
+# .specify/ are tracked; .specify/.gitignore keeps Spec Kit's own local files out.
+**/.claude/settings.local.json
+
 # Vercel (a manual `vercel link` in an app folder would create this; releases use their own export)
 .vercel/

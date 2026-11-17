@@ -11,7 +11,7 @@ the manifest and the template that all the other tooling expects.
 ## Steps
 
 1. Get a short lowercase name (letters, digits and hyphens), and whether it is only a written idea
-   (`--stage spark`, just `idea.md`) or code. Default to web with Supabase; add `ios` and `android`
+   (`--stage spark`: `idea.md` and Spec Kit, no code) or code. Default to web with Supabase; add `ios` and `android`
    only when the idea needs them, because every platform is implemented separately.
 2. Create it:
 
@@ -22,8 +22,11 @@ the manifest and the template that all the other tooling expects.
 
 3. Fill in `apps/<name>/idea.md` with the user: the problem, the hypothesis, the success metric and
    the kill criteria. This is the part that decides whether the idea deserves more work.
-4. Run it, using the `try-locally` skill, then `pnpm verify <name>`.
-5. Commit. The pre-commit hook scans for secrets. When it is time to get it to testers, use the
+4. Specify the first feature before building it, using the `build-feature` skill. The idea is
+   already a Spec Kit project: `pnpm new` installed the kit and wrote its constitution
+   (`apps/<name>/.specify/memory/constitution.md`), so do not run `specify init`.
+5. Run it, using the `try-locally` skill, then `pnpm verify <name>`.
+6. Commit. The pre-commit hook scans for secrets. When it is time to get it to testers, use the
    `ship` skill; the idea must first be promoted to `alpha`.
 
 ## Rules

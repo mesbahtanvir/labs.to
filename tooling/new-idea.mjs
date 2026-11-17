@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scaffolds a new idea: apps/<name>/{idea.yaml, idea.md, <platform>/..., supabase/...}
+// Scaffolds a new idea: apps/<name>/{idea.yaml, idea.md, .specify/, <platform>/..., supabase/...}
 //
 //   pnpm new <name> [--platforms web,ios,android] [--stage prototype]
 //                   [--backend supabase|none] [--title "Pretty Name"] [--owner <who>]
@@ -11,6 +11,8 @@
 // Placeholders {{name}} {{title}} {{title_xml}} {{owner}} {{bundle_id}} {{timestamp}}
 // {{api_port}} are replaced in file contents and file names. {{title_xml}} is the
 // title as an Android string resource (& escaped, a leading @ or ? protected).
+// Every idea, a spark included, is also made a Spec Kit project (templates/speckit/):
+// its own constitution, the speckit-* skills, and specs/ once the first feature is specified.
 
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -26,6 +28,7 @@ import {
   isValidName,
   loadIdea,
 } from "./lib/manifest.mjs";
+import { installSpecKit } from "./lib/speckit.mjs";
 
 const BINARY_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".ico", ".icns", ".jar", ".webp", ".ttf", ".otf", ".woff", ".woff2"]);
 
@@ -190,6 +193,7 @@ bundle_id: ${bundleId}   # iOS bundle id and Android applicationId
 `,
 );
 writeFileSync(join(dir, "idea.md"), render(readFileSync(join(TEMPLATES_DIR, "idea.md"), "utf8"), tokens));
+const specKit = installSpecKit(dir, { name, title });
 
 for (const p of platforms) {
   copyTemplate(join(TEMPLATES_DIR, p), join(dir, p), tokens);
@@ -206,10 +210,11 @@ if (slot !== null) {
 const { errors } = loadIdea(name);
 if (errors.length > 0) fail(`generated idea is invalid:\n  - ${errors.join("\n  - ")}`);
 
-console.log(`Created apps/${name} (${stage}; ${platforms.join(", ") || "no platforms yet"}; backend: ${backend})\n`);
+console.log(`Created apps/${name} (${stage}; ${platforms.join(", ") || "no platforms yet"}; backend: ${backend}; Spec Kit ${specKit.version})\n`);
 console.log("Next:");
 console.log(`  1. Fill in apps/${name}/idea.md (problem, hypothesis, success metric, kill criteria)`);
-let step = 2;
+console.log(`  2. Specify the first feature before building it: in Claude, from apps/${name}, /speckit-specify <what and why>`);
+let step = 3;
 if (platforms.includes("web")) {
   console.log(`  ${step++}. pnpm install`);
 }
