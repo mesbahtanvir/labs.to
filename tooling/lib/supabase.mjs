@@ -8,7 +8,7 @@
 import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "./exec.mjs";
+import { retryStalled, run, runWatched } from "./exec.mjs";
 import { acquireLock } from "./lock.mjs";
 import { APPS_DIR, ROOT } from "./manifest.mjs";
 
@@ -25,9 +25,24 @@ const VERIFY_PORT_DELTA = -2000;
 
 const VERIFY_ROOT = join(tmpdir(), "labs-verify");
 
-/** Runs the pinned Supabase CLI with `workdir` as the project root. */
+// The pinned CLI has gone quiet in the middle of a command and never exited (twice in one
+// night, cause unknown; see Known gaps in README.md), which cost the 15 minutes run() waits.
+// So a CLI command that prints nothing for this long is given up on. A healthy `start` or
+// `db reset` is silent for about 10s at a time (database starting, health checks), and a
+// start that took 85s instead of 25s, with every core busy, still printed well within a minute.
+const SB_QUIET_MS = 150 * 1000;
+const STALLED_HELP = [
+  "The Supabase CLI went quiet without exiting, twice in a row. Both times it was killed with the processes it started.",
+  "Try: pnpm verify --cleanup, then verify again. If it keeps happening, restart Docker, and see Known gaps in README.md.",
+].join("\n");
+
+/**
+ * Runs the pinned Supabase CLI with `workdir` as the project root. A command that stalls is
+ * killed and run once more (every command verify uses can be repeated); one that fails is not.
+ */
 export function sb(workdir, args) {
-  return run(SB_BIN, ["--workdir", workdir, ...args]);
+  const r = retryStalled(() => runWatched(SB_BIN, ["--workdir", workdir, ...args], { quietMs: SB_QUIET_MS }), `supabase ${args.slice(0, 2).join(" ")}`);
+  return r.stalled ? { ...r, out: `${r.out}\n${STALLED_HELP}` } : r;
 }
 
 export function dockerUp() {

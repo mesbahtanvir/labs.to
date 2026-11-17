@@ -17,7 +17,8 @@ that keep it uniform.
 ## Rules
 
 - **A new idea is created with `pnpm new <name>`, never by hand.** The generator
-  guarantees the layout, manifest and template that tooling expects.
+  guarantees the layout, manifest and template that tooling expects. A spark
+  (`--stage spark`) is created without platforms: its code arrives with `pnpm grow`.
 - **An idea that exists grows with `pnpm grow <idea>`, never by hand.** A platform
   (`--platforms`) or a backend (`--backend supabase`) is not added by copying `templates/` or
   by listing it in `idea.yaml` yourself: the command stamps out the same files `pnpm new` would
@@ -144,7 +145,11 @@ emulator). Also try to break it: a table without RLS, a type error, a stale-type
 migration, and for each mobile platform a failing unit test, a failing UI test, a
 compiler warning and a formatting violation, and for Spec Kit an idea without `.specify/`, a
 constitution left as the unfilled template and a hand-edited file in `templates/speckit/kit/`,
-and confirm `verify` fails each time. Restore mutated files with a checksum-based copy
+and confirm `verify` fails each time. A change to how the Supabase CLI is run
+(`tooling/lib/exec.mjs`, `watch.mjs`, `supabase.mjs`) is also rehearsed with a CLI that stalls:
+point `SUPABASE_CLI_BINARY_OVERRIDE` (read by the CLI's own launcher) at a script that prints
+and never exits for one command and runs the real binary otherwise; verify must give up on it,
+run it once more and say so, and fail when it stalls twice. Restore mutated files with a checksum-based copy
 (`rsync -ac`), since a same-second, same-size edit can look unchanged to a plain
 `rsync`. A change to the stamping (`tooling/lib/scaffold.mjs`, `pnpm new`, `pnpm grow`) is also
 rehearsed by growing: a spark sample that gets `web`, then `ios,android`, and a `--backend none`

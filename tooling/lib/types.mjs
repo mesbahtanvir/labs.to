@@ -20,7 +20,7 @@ export function generateTypes({ idea, manifest, workdir, check }) {
 
     const run = sb(workdir, ["gen", "types", "--lang", target.lang, "--local"]);
     if (!run.ok) {
-      return { ok: false, stale, messages: [...messages, `could not generate ${target.lang} types:\n${run.stderr}`] };
+      return { ok: false, stale, messages: [...messages, `could not generate ${target.lang} types:\n${run.stalled ? run.out : run.stderr}`] };
     }
 
     const rel = `apps/${idea}/${platform}/${target.file}`;

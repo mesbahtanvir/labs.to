@@ -64,6 +64,10 @@ pnpm new my-idea --stage spark            # idea.md and Spec Kit, no code
 pnpm new my-idea --backend none           # no Supabase (default is supabase)
 ```
 
+A name is kebab-case: lowercase letters and digits with one hyphen between words, 3 to 40
+characters, starting with a letter. A spark is an idea on paper, so `--stage spark` takes no
+`--platforms` (asking for both is refused); its code arrives later, with `pnpm grow`.
+
 With the Supabase backend, the idea has its own local dev stack (needs Docker):
 
 ```bash
@@ -176,7 +180,7 @@ pnpm scan                   # secrets scan on its own
 
 `verify` runs: frozen-lockfile install, manifests (which includes that every idea is a
 Spec Kit project with a filled-in constitution), secrets scan, the tooling's own unit
-tests (`pnpm test`, under a second), then per idea
+tests (`pnpm test`, a few seconds), then per idea
 the backend (migrations apply from scratch, pgTAP tests, schema lint, client
 types up to date), the web app (typecheck, lint, test, build), the iOS app
 (generate project, swift-format, build, unit and UI tests on a simulator) and the
@@ -212,6 +216,10 @@ the maintainer's machine was busy.
   you have open is left alone. The AVD takes about 5 GB (`~/.android/avd/labs-verify.avd`,
   mostly its quick-boot snapshot); remove it any time with
   `avdmanager delete avd -n labs-verify` and the next run recreates it.
+- **A Supabase CLI command that goes quiet is given up on.** If one prints nothing for 150
+  seconds, verify kills it with the processes it started and runs it once more. A second run
+  that passes is reported on the step's line (`... stalled once ... and passed when run
+  again`); one that stalls again fails the step. A command that fails is never run again.
 - **A passing full-scope run writes a stamp** keyed to the git tree hash of the
   exact files verified, stored in `.git/labs-verified/`. Any content change,
   including a rebase that pulls in someone else's work, invalidates it.
@@ -434,6 +442,18 @@ pre-push hook.
   `start` on the maintainer's machine, while 2.105.0 is what their other projects
   already run. Upgrade deliberately: bump the pin, regenerate
   `templates/supabase/config.toml` with `supabase init`, re-verify.
+- **Supabase CLI commands run under a watchdog, with one retry for a stall only.** The pinned
+  CLI twice went quiet in the middle of a command and never exited (see Known gaps), and each
+  time verify sat for the 15 minutes a step is allowed by default. `tooling/lib/watch.mjs` now runs
+  the CLI, passes its output through, and kills it and its child processes after 150 seconds
+  of silence: a healthy `start` or `db reset` is silent for about 10 seconds at a time, and a
+  start slowed to 85 seconds by a machine with every core busy still printed well within a
+  minute. It is a separate process because the step runner is synchronous (`spawnSync`), which
+  can only wait for a fixed time, kills only the launcher at the top of the CLI's three
+  processes, and keeps waiting while anything holds the output open. The stalled command is
+  run once more because both real stalls passed when run again and every command verify uses
+  can be repeated; a command that exits with a failure is never retried, so a red check stays
+  red. A step that needed the second run says so, so a CLI that stalls often is noticed.
 - **iOS: the Xcode project is generated, not committed.** `project.yml` (XcodeGen)
   is the source, so there are no `.pbxproj` merge conflicts and an agent can edit
   the project as plain text. Targets and the scheme have fixed names (`Idea`,
@@ -543,6 +563,19 @@ pre-push hook.
   models and sample code are for the template's starter schema until `pnpm types` and a hand
   edit bring them to the idea's own. Port blocks are allocated from the `apps/` of the checkout
   the command runs in, as with `pnpm new`, so two worktrees can hand out the same block.
+- Why the Supabase CLI stalls is not known. Twice on 2026-11-17, on a busy machine, it went
+  quiet mid-command (`start` right after "Started supabase local development setup.",
+  `db reset` right after "Seeding globals from roles.sql...") and never exited. The CLI is a
+  node launcher, a shim, and the Go program that does the work; its own trace
+  (`~/.supabase/traces/`) recorded both commands as `error`. The only way found to make it
+  record that is to end the Go program with a signal (a command that merely fails leaves no
+  entry), so the Go program most likely died from a signal both times, and nothing in this
+  repository sends one. But every such death that could be provoked (kill, hang-up, a closed
+  output pipe) made the shim print `ChildProcess.exitCode` and exit at once. A shim that
+  stays silent and alive was never reproduced: not in 5 more rounds of start, two resets,
+  tests and stop (2 of them with every core busy), and not in any run since. So verify does
+  not prevent the stall: it gives up on the command after 150 seconds, runs it once more and
+  says so (see Decisions). `pnpm sb` is not watched: a stall there is yours to interrupt.
 - Secrets scanning covers the current tree, not git history.
 - `pre-push` can be bypassed with `--no-verify`.
 - iOS verification covers the simulator only, with no end-to-end flow against the

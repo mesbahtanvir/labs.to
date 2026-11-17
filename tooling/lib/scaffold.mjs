@@ -152,6 +152,16 @@ export function buildTokens({ name, title, owner, bundleId = defaultBundleId(nam
   return { name, title, title_xml: titleXml, owner, bundle_id: bundleId, timestamp, api_port: String(apiPort) };
 }
 
+/**
+ * Why `pnpm new` can not create this, or null. A spark is an idea on paper (idea.md and
+ * Spec Kit): it has no platform folder and no supabase/, so code for one would point at a
+ * backend that is not there. Its platforms arrive with `pnpm grow`, which also makes it a prototype.
+ */
+export const sparkProblem = (name, stage, platforms) =>
+  stage === "spark" && platforms.length > 0
+    ? `a spark is an idea on paper (idea.md and Spec Kit, no code), so it takes no platforms. Leave --platforms out and add them when you start building (pnpm grow ${name} --platforms ${platforms.join(",")}), or start with code: --stage prototype`
+    : null;
+
 /** `--platforms web,ios` as a list. */
 export const parsePlatforms = (text) => text.split(",").map((p) => p.trim()).filter(Boolean);
 
@@ -282,10 +292,13 @@ function schemaIsTemplates(ideaDir, tokens, templatesDir) {
 /**
  * Writes a new idea: idea.yaml, idea.md, Spec Kit, a folder per platform and, with the
  * supabase backend (and unless it is a spark), supabase/ on a free block of ports.
- * The caller has checked the arguments and that the folder does not exist.
+ * The caller has checked the arguments and that the folder does not exist. A spark with
+ * platforms is refused here too (it throws, before anything is written).
  * @returns {{ dir: string, slot: number | null, specKit: object }}
  */
 export function createIdea({ name, title, stage, platforms, backend, owner, timestamp }, { appsDir = APPS_DIR, templatesDir = TEMPLATES_DIR } = {}) {
+  const problem = sparkProblem(name, stage, platforms);
+  if (problem) throw new Error(problem);
   // Claim this idea's block of local Supabase ports before templates are rendered,
   // because client env files need the API port.
   const slot = backend === "supabase" && stage !== "spark" ? freePortSlot(appsDir) : null;

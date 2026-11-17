@@ -33,7 +33,11 @@ export const TEST_STAGES = ["alpha", "live"];
 export const RELEASE_STAGES = ["alpha", "live"];
 
 const KNOWN_KEYS = ["name", "title", "stage", "platforms", "backend", "owner", "bundle_id"];
-const NAME_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
+// Words of lowercase letters and digits with one hyphen between them. The name becomes a folder,
+// a package, a Docker project, a release tag and a hosted project, and is split into words for
+// the default title, so "a--b" and "a-" are not names.
+const NAME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+export const NAME_RULE = "kebab-case (lowercase letters and digits, one hyphen between words), 3-40 characters, starting with a letter";
 // Valid as an iOS bundle id and as an Android applicationId (no hyphens).
 const BUNDLE_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 
@@ -60,7 +64,7 @@ export function specKitErrors(dir, dirName) {
 }
 
 export function isValidName(name) {
-  return typeof name === "string" && NAME_RE.test(name);
+  return typeof name === "string" && name.length >= 3 && name.length <= 40 && NAME_RE.test(name);
 }
 
 export function defaultBundleId(name) {
@@ -115,7 +119,7 @@ export function validateManifest(m, dirName, dir) {
   }
 
   if (!isValidName(m.name)) {
-    errors.push(`name must be kebab-case, 3-40 chars, starting with a letter (got ${JSON.stringify(m.name)})`);
+    errors.push(`name must be ${NAME_RULE} (got ${JSON.stringify(m.name)})`);
   } else if (m.name !== dirName) {
     errors.push(`name "${m.name}" must match its folder "apps/${dirName}"`);
   }

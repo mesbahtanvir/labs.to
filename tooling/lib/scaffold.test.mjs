@@ -8,16 +8,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
-import { loadIdea } from "./manifest.mjs";
+import { isValidName, loadIdea } from "./manifest.mjs";
 import {
   applyGrowth,
   copyTemplate,
   createIdea,
+  defaultTitle,
   manifestText,
   nextSteps,
   planGrowth,
   render,
   shiftPorts,
+  sparkProblem,
   updateManifestText,
   usedPortSlots,
 } from "./scaffold.mjs";
@@ -47,6 +49,28 @@ const manifest = (appsDir, name = "notes") => parse(read(appsDir, name, "idea.ya
 
 test("render fills in the tokens it knows and leaves the rest alone", () => {
   assert.equal(render("{{name}} on {{api_port}}, {{unknown}} and ${{ github.sha }}", { name: "notes", api_port: "44321" }), "notes on 44321, {{unknown}} and ${{ github.sha }}");
+});
+
+test("a name is words with one hyphen between them, so every name has a default title", () => {
+  for (const [name, title] of [["abc", "Abc"], ["a-b", "A B"], ["field-notes-2", "Field Notes 2"], ["a".repeat(40), `A${"a".repeat(39)}`]]) {
+    assert.ok(isValidName(name), name);
+    assert.equal(defaultTitle(name), title);
+  }
+  for (const name of ["ab", "a--b", "a---b", "-ab", "ab-", "Abc", "a_b", "a.b", "1ab", "a".repeat(41), "", undefined]) {
+    assert.ok(!isValidName(name), `${name} is not a name`);
+  }
+});
+
+test("a spark is created without code: asking for platforms too is refused before anything is written", (t) => {
+  const appsDir = scratch(t);
+  assert.throws(() => create(appsDir, { stage: "spark", platforms: ["web", "ios"] }), /a spark is an idea on paper.*pnpm grow notes --platforms web,ios/);
+  assert.ok(!existsSync(join(appsDir, "notes")), "nothing was written");
+  assert.equal(sparkProblem("notes", "spark", []), null);
+  assert.equal(sparkProblem("notes", "prototype", ["web"]), null);
+
+  create(appsDir, { stage: "spark", platforms: [] });
+  assert.deepEqual(listTree(join(appsDir, "notes")).filter((f) => !f.startsWith(".")), ["idea.md", "idea.yaml"]);
+  assert.deepEqual(loadIdea("notes", appsDir).errors, []);
 });
 
 test("a template is copied with names and contents rendered, binaries and modes kept, package.json merged", (t) => {

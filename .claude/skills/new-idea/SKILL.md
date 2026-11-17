@@ -11,9 +11,9 @@ is grown with `pnpm grow` (see "Grow an idea that exists" below), never by copyi
 
 ## Steps
 
-1. Get a short lowercase name (letters, digits and hyphens), and whether it is only a written idea
-   (`--stage spark`: `idea.md` and Spec Kit, no code) or code. Default to web with Supabase; add `ios` and `android`
-   only when the idea needs them, because every platform is implemented separately.
+1. Get a short lowercase name (letters and digits, one hyphen between words), and whether it is only a
+   written idea (`--stage spark`: `idea.md` and Spec Kit, no code, so no `--platforms`) or code. Default to web
+   with Supabase; add `ios` and `android` only when the idea needs them, because every platform is implemented separately.
 2. Create it:
 
    ```bash
