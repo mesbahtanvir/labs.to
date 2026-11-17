@@ -37,6 +37,28 @@ const NAME_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 // Valid as an iOS bundle id and as an Android applicationId (no hyphens).
 const BUNDLE_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 
+// Every idea is its own Spec Kit project (github/spec-kit): `pnpm new` installs the kit,
+// and `pnpm speckit <idea>` repairs or refreshes it. These are the files that make the
+// Spec Kit commands work, and the constitution every plan is checked against.
+export const SPECKIT_CONSTITUTION = ".specify/memory/constitution.md";
+const SPECKIT_REQUIRED = [".specify/init-options.json", ".specify/scripts/bash/check-prerequisites.sh", ".claude/skills/speckit-specify/SKILL.md"];
+const CONSTITUTION_PLACEHOLDER_RE =
+  /\[(PROJECT_NAME|PRINCIPLE_\d+_(NAME|DESCRIPTION)|SECTION_\d+_(NAME|CONTENT)|GOVERNANCE_RULES|CONSTITUTION_VERSION|RATIFICATION_DATE|LAST_AMENDED_DATE)\]/;
+
+/** Is this constitution still Spec Kit's unfilled template? */
+export const constitutionIsTemplate = (text) => CONSTITUTION_PLACEHOLDER_RE.test(text);
+
+export function specKitErrors(dir, dirName) {
+  const missing = SPECKIT_REQUIRED.filter((f) => !existsSync(join(dir, f)));
+  if (missing.length > 0) return [`not a Spec Kit project (apps/${dirName}/${missing[0]} is missing). Run: pnpm speckit ${dirName}`];
+  const constitution = join(dir, SPECKIT_CONSTITUTION);
+  if (!existsSync(constitution)) return [`apps/${dirName}/${SPECKIT_CONSTITUTION} is missing. Run: pnpm speckit ${dirName}`];
+  if (constitutionIsTemplate(readFileSync(constitution, "utf8"))) {
+    return [`apps/${dirName}/${SPECKIT_CONSTITUTION} is still the unfilled template. Run: pnpm speckit ${dirName}`];
+  }
+  return [];
+}
+
 export function isValidName(name) {
   return typeof name === "string" && NAME_RE.test(name);
 }
@@ -130,5 +152,6 @@ export function validateManifest(m, dirName, dir) {
   }
 
   if (!existsSync(join(dir, "idea.md"))) errors.push("missing idea.md");
+  errors.push(...specKitErrors(dir, dirName));
   return errors;
 }

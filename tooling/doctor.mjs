@@ -18,6 +18,7 @@ import { iosPreflight } from "./lib/ios.mjs";
 import { credentialProblems } from "./lib/ios-release.mjs";
 import { credentialProblems as webCredentialProblems } from "./lib/web-release.mjs";
 import { loadIdeas } from "./lib/manifest.mjs";
+import { cliVersion as specKitCliVersion, kitVersion } from "./lib/speckit.mjs";
 import { cliInstalled, dockerUp } from "./lib/supabase.mjs";
 
 const TARGETS = ["ios", "web"];
@@ -74,6 +75,17 @@ const tools = [
     probe: () => {
       const r = run("git", ["config", "core.hooksPath"]);
       return { ok: r.stdout.trim() === ".githooks", note: "pre-commit scan, pre-push stamp", fix: "install them with: pnpm install" };
+    },
+  },
+  {
+    name: "spec kit",
+    need: true,
+    probe: () => {
+      // The kit every idea gets is vendored; the CLI is only needed to regenerate it.
+      const kit = kitVersion();
+      const cli = specKitCliVersion();
+      const cliNote = cli === null ? "specify CLI not installed (only needed to refresh the template)" : cli === kit ? "same as the specify CLI" : `specify CLI is ${cli}`;
+      return { ok: kit !== null, note: `kit ${kit}, in every idea; ${cliNote}`, fix: "templates/speckit/kit is missing: restore it from git, or pnpm speckit --refresh-template" };
     },
   },
   { name: "supabase cli", need: need.supabase, probe: () => ({ ok: cliInstalled(), note: "pinned, in node_modules", fix: "install it with: pnpm install" }) },

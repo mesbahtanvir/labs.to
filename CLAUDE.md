@@ -18,6 +18,16 @@ that keep it uniform.
 
 - **A new idea is created with `pnpm new <name>`, never by hand.** The generator
   guarantees the layout, manifest and template that tooling expects.
+- **Every idea is its own Spec Kit project, and a feature starts as a spec.** `pnpm new` installs
+  the kit in `apps/<idea>/` (`.specify/`, `.claude/skills/speckit-*`) and writes the idea's
+  constitution. A change in behavior goes through that idea's `speckit-specify`, `speckit-plan`,
+  `speckit-tasks` and `speckit-implement` (the `build-feature` skill), run with `apps/<idea>` as
+  the working directory: Spec Kit's "repo root" is the idea folder, and specs live in
+  `apps/<idea>/specs/`. Never add a `.specify/` at this repository's root and never run
+  `specify init` here (a test enforces the first). The kit files are copies of
+  `templates/speckit/kit/`, which is itself the unedited output of `specify init`: do not edit
+  either by hand (a test compares checksums). `pnpm speckit <idea>` repairs an idea's kit;
+  the constitution and `specs/` are the idea's own and are never overwritten.
 - **`apps/<idea>/idea.yaml` is the source of truth.** Never hardcode an idea's name
   in a workflow, script or config. Anything that needs the list of ideas reads the
   manifests through `tooling/lib/manifest.mjs`.
@@ -27,7 +37,7 @@ that keep it uniform.
   Release. **GitHub holds no secrets:** no workflow reads `secrets.*` (a test enforces it)
   and deploys run from this machine through `pnpm release`. Moving a deploy onto GitHub is a
   decision for the user, not a convenience to slip in.
-- **Project skills live in `.claude/skills/`** (`setup`, `new-idea`, `try-locally`, `ship`).
+- **Project skills live in `.claude/skills/`** (`setup`, `new-idea`, `build-feature`, `try-locally`, `ship`).
   Use them for those jobs, and when a command or rule here changes, update the skill that
   mentions it (a test fails if a skill names a `pnpm` script that does not exist).
 - **Platform folders are self-contained.** `apps/<idea>/web`, `ios` and `android`
@@ -92,6 +102,8 @@ pnpm verify [idea...] [--all] [--keep] [--cleanup]   # the local gate; writes th
 pnpm sb <idea> start|stop|status|db reset|test db|... # pinned Supabase CLI for one idea
 pnpm types <idea> [--check]                          # client types from the dev stack's schema
 pnpm ios <idea> [open|generate]                      # generate the Xcode project from project.yml, open it
+pnpm speckit <idea>|--all                            # put the Spec Kit files back in an idea (keeps its constitution and specs)
+pnpm speckit --refresh-template                      # regenerate templates/speckit/kit with the specify CLI on this machine
 pnpm release <idea> ios|web [--dry-run] [--bump minor|--version X.Y.Z]   # TestFlight or Vercel, from this machine
 pnpm doctor [--for ios|web] [--init]                 # tools and .env.labs: what is missing, by name; --init creates .env.labs
 node tooling/release-notes.mjs <tag>                 # what the GitHub Release for a release tag would say
@@ -119,7 +131,9 @@ for it (this exercises the Supabase stack, the web checks and, with
 `--platforms web,ios,android`, the iOS and Android builds and tests on the simulator and
 emulator). Also try to break it: a table without RLS, a type error, a stale-types
 migration, and for each mobile platform a failing unit test, a failing UI test, a
-compiler warning and a formatting violation, and confirm `verify` fails each time. Restore mutated files with a checksum-based copy
+compiler warning and a formatting violation, and for Spec Kit an idea without `.specify/`, a
+constitution left as the unfilled template and a hand-edited file in `templates/speckit/kit/`,
+and confirm `verify` fails each time. Restore mutated files with a checksum-based copy
 (`rsync -ac`), since a same-second, same-size edit can look unchanged to a plain
 `rsync`. Then delete the sample (`pnpm sb sample-idea stop --no-backup` if a dev stack
 is up; `pnpm verify --cleanup` stops the verify simulator). Dependency pins (TypeScript, ESLint, the Supabase CLI) exist for
@@ -144,7 +158,8 @@ not a release tag, a lightweight tag), and a test double of `gh` stands in for G
 ## Not built yet
 
 Releases of Android (device builds, signing, the Play tracks), hosted Supabase environments,
-design tokens, end-to-end flows. iOS releases to TestFlight exist but have never been run against
+design tokens, end-to-end flows. Spec Kit is installed in every idea, but nothing checks that
+code matches its spec, and the kit comes from the Spec Kit build on this machine (see Known gaps). iOS releases to TestFlight exist but have never been run against
 Apple for real, web releases to Vercel exist but have never been run against the real Vercel
 (only a stand-in API), and `release.yml` has never run on GitHub. Do not
 pretend otherwise in docs, and

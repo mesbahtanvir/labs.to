@@ -18,16 +18,20 @@ place where quality is decided.
 apps/<idea>/
   idea.yaml        source of truth: name, stage, platforms, backend, owner, bundle_id
   idea.md          problem, hypothesis, success metric, kill criteria
+  .specify/        Spec Kit: this idea's constitution (memory/), plus the kit's scripts and templates
+  .claude/skills/  the Spec Kit commands (speckit-specify, speckit-plan, ...) as skills for Claude
+  specs/           one folder per feature: spec.md, plan.md, tasks.md (appears with the first spec)
   supabase/        migrations, RLS tests, seed, local config (the backend)
   web/             Next.js project (a pnpm workspace package)
   ios/             SwiftUI app; project.yml (XcodeGen) is the source of the Xcode project
   android/         Jetpack Compose app (Gradle); :app, plus :backend when there is a backend
 packages/<platform>/   code shared across ideas on one platform
 templates/<platform>/  what `pnpm new` stamps out (overlays/ add backend-specific files)
+templates/speckit/     the Spec Kit files every idea gets (kit/, generated) and our constitution
 tooling/               generator, verify, release, doctor, planner, secrets scanner, Supabase wrappers
 .githooks/             pre-commit and pre-push, installed by `pnpm install`
 .github/workflows/     ci.yml plus reusable _web.yml and _supabase.yml; release.yml (GitHub Releases)
-.claude/skills/        setup, try-locally, ship, new-idea: the local-to-landing flow for Claude
+.claude/skills/        setup, new-idea, build-feature, try-locally, ship: the local-to-landing flow for Claude
 .env.example           what this machine needs (copied to the git-ignored .env.labs)
 ```
 
@@ -37,7 +41,8 @@ tooling/               generator, verify, release, doctor, planner, secrets scan
 pnpm doctor --init       once per machine: creates .env.labs; fill in the iOS lines
 pnpm doctor --for ios    says what is still missing, by name (never a value)
 
-pnpm new my-idea         start an idea
+pnpm new my-idea         start an idea (it is a Spec Kit project from the first minute)
+(spec it)                in Claude, from apps/my-idea: /speckit-specify, -plan, -tasks, -implement
 (try it)                 pnpm sb my-idea start, pnpm --filter @labs/my-idea-web dev, pnpm ios my-idea
 pnpm verify my-idea      the gate; push when it passes (the hook checks)
 pnpm release my-idea ios --dry-run     then, without --dry-run, to TestFlight
@@ -54,7 +59,7 @@ the same commands through the skills in `.claude/skills/` (see "Working with Cla
 pnpm install
 pnpm new my-idea                          # web + supabase, stage: prototype
 pnpm new my-idea --platforms web,ios,android   # any mix of platforms
-pnpm new my-idea --stage spark            # idea.md only, no code
+pnpm new my-idea --stage spark            # idea.md and Spec Kit, no code
 pnpm new my-idea --backend none           # no Supabase (default is supabase)
 ```
 
@@ -94,7 +99,41 @@ cd apps/my-idea/android && ./gradlew assembleDebug   # or open the folder in And
 Everything lives in Gradle, so there is no generated project to protect. Versions are
 pinned in `gradle/libs.versions.toml` and `gradle/wrapper/`.
 
-Fill in `apps/my-idea/idea.md`, build, then verify and push.
+Fill in `apps/my-idea/idea.md`, specify the first feature, build it, then verify and push.
+
+## Spec, then build
+
+Every idea is its own [Spec Kit](https://github.com/github/spec-kit) project. `pnpm new`
+installs the kit and writes a constitution that already carries this repository's rules (spec
+before code, the smallest thing that tests the hypothesis, native per platform, the schema as
+the contract, verified locally), so there is no `specify init` to run.
+
+The three documents answer different questions: `idea.md` says why the idea exists, the
+constitution (`.specify/memory/constitution.md`) says how it is built, and each folder in
+`specs/` says what one feature does. In Claude, with `apps/my-idea` as the working directory:
+
+```
+/speckit-specify  what the feature does and why, no technology   -> specs/001-.../spec.md
+/speckit-clarify  optional: settle the open questions
+/speckit-plan     the technical plan, checked against the constitution
+/speckit-tasks    the plan as ordered tasks
+/speckit-implement
+```
+
+Then `pnpm verify my-idea`, and commit the spec, plan, tasks and code together. Spec Kit's
+"repository root" is the idea folder, never this repository's root, which is why there is no
+`.specify/` up here. It creates no branches (its git extension is left out): branching,
+verifying and pushing stay as described below.
+
+```bash
+pnpm speckit my-idea             # put the kit back if a file went missing or was edited
+pnpm speckit --all               # the same for every idea, after a template refresh
+pnpm speckit --refresh-template  # regenerate templates/speckit/kit with the specify CLI on this machine
+```
+
+`pnpm speckit` only ever replaces kit files. The constitution and `specs/` are the idea's own.
+A change that touches only an idea's `specs/` or `.specify/` runs the workspace checks
+(manifests, secrets, tooling tests) and no platform checks, since no app changed.
 
 ## Verify, then push
 
@@ -106,7 +145,8 @@ pnpm verify --cleanup       # stop leftover throwaway stacks, the simulator and 
 pnpm scan                   # secrets scan on its own
 ```
 
-`verify` runs: frozen-lockfile install, manifests, secrets scan, the tooling's own unit
+`verify` runs: frozen-lockfile install, manifests (which includes that every idea is a
+Spec Kit project with a filled-in constitution), secrets scan, the tooling's own unit
 tests (`pnpm test`, under a second), then per idea
 the backend (migrations apply from scratch, pgTAP tests, schema lint, client
 types up to date), the web app (typecheck, lint, test, build), the iOS app
@@ -244,18 +284,22 @@ and refuses a tag that is not on `main`, which means the tag was not made by `pn
 
 ## Working with Claude
 
-Four project skills in `.claude/skills/` carry the flow above, so an agent does not have to
+Five project skills in `.claude/skills/` carry the flow above, so an agent does not have to
 rediscover it. They call the same commands you do, and the rules in `CLAUDE.md` still apply.
 
 | skill         | for                                                                          |
 | ------------- | ---------------------------------------------------------------------------- |
 | `setup`       | this machine: doctor, `.env.labs`, the App Store Connect key                 |
 | `new-idea`    | `pnpm new`, then `idea.md`                                                    |
+| `build-feature` | a feature, spec first, through the idea's own Spec Kit, then verify        |
 | `try-locally` | run an idea (backend, web, iOS, Android) so you can look at it, then verify  |
 | `ship`        | doctor, verify, dry run, then the real release, with your yes before upload  |
 
 A test keeps them honest: each skill's name matches its folder, and every `pnpm` command a
-skill mentions must exist.
+skill mentions must exist. Each idea also carries the ten Spec Kit skills in its own
+`.claude/skills/`. Claude Code picks them up as soon as it reads or edits a file in that idea,
+and scopes them to it, so two ideas' copies do not collide; `build-feature` is the way in from
+the repository root.
 
 ## Stages
 
@@ -314,6 +358,23 @@ pre-push hook.
   which is why ideas start web-only and add platforms when they earn it.
 - **What is shared:** the manifest, verify and release machinery, templates, and
   (planned) design tokens. Not UI code.
+- **Every idea is its own Spec Kit project.** Spec Kit treats the nearest folder with a
+  `.specify/` as the project, so each idea has its own constitution, its own feature numbering
+  and its own `specs/`, and stays disposable: archive the idea and its specs go with it. One
+  shared install at the root would mean one constitution and one feature counter for unrelated
+  ideas. The price is about thirty copied files (300 KB) per idea.
+- **The kit is vendored, and generated, not written.** `templates/speckit/kit/` is the unedited
+  output of `specify init --integration claude --script sh`, so `pnpm new` needs no network, no
+  Python and no CLI, in the same way the Supabase `config.toml` is generated once and stamped
+  out. A test checks every kit file against the checksums Spec Kit itself recorded, so a hand
+  edit fails `verify`. To upgrade: upgrade the `specify` CLI yourself (`specify self upgrade`),
+  run `pnpm speckit --refresh-template`, then `pnpm speckit --all`, and verify. Spec Kit's git
+  extension is deliberately left out, because it creates a branch per feature and this
+  repository has its own branch, stamp and push flow.
+- **The constitution is ours, the rest is theirs.** `templates/speckit/constitution.md` is the
+  one Spec Kit file written here: it turns the rules in `CLAUDE.md` into principles that every
+  plan is checked against. After `pnpm new` it belongs to the idea, which amends it with
+  `/speckit-constitution`; no tool overwrites it once it is filled in.
 - **No Turborepo yet.** One planner covers all platforms, native included. Add a
   task cache when web build times justify it.
 - **Pinned for compatibility.** `typescript ~6.0` because typescript-eslint does
@@ -424,12 +485,23 @@ pre-push hook.
 
 ## Known gaps
 
-- The GitHub workflows have never run on GitHub and were not linted with
-  `actionlint`; they were only parsed as YAML. Expect to fix something on the first PR.
+- On GitHub, only the `guard` and `ci-ok` jobs of `ci.yml` have run (green on the first PR and
+  on `main`). The `web` and `supabase` jobs have never run, because no idea is `live` yet, and
+  no workflow was linted with `actionlint`; expect to fix something the first time they do.
+  `main` has no branch protection, so `ci-ok` is not required yet and a direct push is possible.
   For `release.yml`, the notes script ran against real tags in a scratch repository and
   the `gh release create` step ran against a test double of `gh`; the first real tag push
   is its first run on GitHub (one doubt: whether `actions/checkout` keeps a tag annotated,
   which only affects the stage and build number in the notes, not the release).
+- Spec Kit is wired in, but nothing checks that code matches its spec: `verify` only proves
+  that each idea is a Spec Kit project with a filled-in constitution. The kit was generated
+  with Spec Kit 1.2.2.dev0, the build installed on the maintainer's machine, which is behind
+  the latest release. No feature has been taken through specify, plan, tasks and implement in
+  this repository yet: what ran is the generator, Spec Kit's own scripts inside a generated
+  idea (they resolve the idea folder as the project, from the idea and from the root), and
+  Claude Code discovering the idea's skills.
+- There is no command to add a platform or a backend to an existing idea, or to turn a spark
+  into a prototype: `pnpm new` refuses a folder that exists, so that step is still by hand.
 - Secrets scanning covers the current tree, not git history.
 - `pre-push` can be bypassed with `--no-verify`.
 - iOS verification covers the simulator only, with no end-to-end flow against the
@@ -472,3 +544,4 @@ pre-push hook.
    - hosted Supabase for `alpha` (`db push`, hosted URL and key per idea)
    - Android to the Play internal track
 6. Design tokens shared across platforms; end-to-end flows (Playwright, Maestro)
+7. ~~Spec Kit in every idea (`pnpm new` installs it; `pnpm speckit` keeps it current)~~ (done)
