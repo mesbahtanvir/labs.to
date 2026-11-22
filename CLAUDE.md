@@ -13,6 +13,22 @@ that keep it uniform.
   macOS CI. Gate paid or hosted things behind an idea's `stage`.
 - **Checks are scripts, not LLM calls.** Run `pnpm verify` and read the output; use
   your judgment only to fix what fails.
+- **One engineer plus Claude maintains this repo.** Design the repo and its SDLC for that,
+  not for a team. Do not import team-scale patterns (review stages, environments to
+  babysit, services to operate) because they are well known. Concretely:
+  - Verification is the bottleneck, not typing. If `pnpm verify` cannot prove it, add the
+    check before adding the feature.
+  - There is one gate and one definition of "passing". Do not add a second.
+  - Intent lives in specs (each idea's Spec Kit), so a fresh session can pick up the work
+    without remembering.
+  - Keep moving parts few: one backend, one way to do each job, boring choices over clever
+    ones. Do not add a service someone has to operate.
+  - Keep decision logic pure (no I/O) so it can be tested exhaustively and cheaply.
+  - Replace human review with mechanical guardrails (RLS test, secrets scan, stale-type
+    check). Where a risk has no guardrail yet, build it rather than rely on remembering.
+  - Nothing may need standing human attention: no on-call, moderation, manual allowlists
+    or dashboards to watch. If a design needs that, change the design. A third-party
+    dependency that needs per-user manual setup counts.
 
 ## Rules
 
