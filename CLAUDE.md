@@ -46,7 +46,7 @@ that keep it uniform.
   Release. **GitHub holds no secrets:** no workflow reads `secrets.*` (a test enforces it)
   and deploys run from this machine through `pnpm release`. Moving a deploy onto GitHub is a
   decision for the user, not a convenience to slip in.
-- **Project skills live in `.claude/skills/`** (`setup`, `new-idea`, `build-feature`, `try-locally`, `ship`).
+- **Project skills live in `.claude/skills/`** (`setup`, `new-idea`, `build-feature`, `try-locally`, `design-review`, `ship`).
   Use them for those jobs, and when a command or rule here changes, update the skill that
   mentions it (a test fails if a skill names a `pnpm` script that does not exist).
 - **Platform folders are self-contained.** `apps/<idea>/web`, `ios` and `android`
