@@ -11,7 +11,7 @@
 // (a missing or unfilled constitution is written from templates/speckit/constitution.md).
 
 import { parseArgs } from "node:util";
-import { loadIdea, loadIdeas } from "./lib/manifest.mjs";
+import { loadIdea, loadIdeas, networkOf } from "./lib/manifest.mjs";
 import { cliVersion, installSpecKit, kitVersion, refreshKit } from "./lib/speckit.mjs";
 
 const USAGE = "usage: pnpm speckit <idea> [...] | --all | --refresh-template";
@@ -57,7 +57,7 @@ for (const name of names) {
     console.error(`FAIL apps/${name}: ${idea.errors.join("; ")}`);
     continue;
   }
-  const r = installSpecKit(idea.dir, { name, title: idea.manifest.title ?? name });
+  const r = installSpecKit(idea.dir, { name, title: idea.manifest.title ?? name, network: networkOf(idea.manifest) });
   const after = loadIdea(name).errors;
   if (after.length > 0) failed++;
   console.log(`${after.length === 0 ? "ok  " : "FAIL"} apps/${name}: Spec Kit ${r.version}, constitution ${r.constitution}${r.removed.length > 0 ? `, removed ${r.removed.join(", ")}` : ""}`);

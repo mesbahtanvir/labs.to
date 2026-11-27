@@ -19,6 +19,9 @@ import { SPECKIT_CONSTITUTION, TEMPLATES_DIR, constitutionIsTemplate } from "./m
 export const SPECKIT_DIR = join(TEMPLATES_DIR, "speckit");
 export const KIT_DIR = join(SPECKIT_DIR, "kit");
 export const CONSTITUTION_TEMPLATE = join(SPECKIT_DIR, "constitution.md");
+// For an idea with `network: none`: no backend, no schema, and a promise that nothing leaves the device.
+export const OFFLINE_CONSTITUTION_TEMPLATE = join(SPECKIT_DIR, "constitution-offline.md");
+export const constitutionTemplateFor = (network) => (network === "none" ? OFFLINE_CONSTITUTION_TEMPLATE : CONSTITUTION_TEMPLATE);
 
 // The idea's own part of a Spec Kit project. The kit never writes here: an idea keeps
 // its constitution across a refresh, and starts from ours rather than from placeholders.
@@ -81,7 +84,7 @@ const today = () => {
  * from templates/speckit/constitution.md.
  * @returns {{ version: string | null, constitution: "written" | "kept", removed: string[] }}
  */
-export function installSpecKit(dir, { name, title, date = today(), kit = KIT_DIR } = {}) {
+export function installSpecKit(dir, { name, title, network = "online", date = today(), kit = KIT_DIR } = {}) {
   const kitFiles = listTree(kit).filter((f) => !f.startsWith(OWN_PREFIX));
   if (kitFiles.length === 0) throw new Error(`the Spec Kit template is missing (${kit}). Run: pnpm speckit --refresh-template`);
 
@@ -100,7 +103,7 @@ export function installSpecKit(dir, { name, title, date = today(), kit = KIT_DIR
   if (write) {
     const tokens = { name, title, date };
     mkdirSync(dirname(constitution), { recursive: true });
-    writeFileSync(constitution, readFileSync(CONSTITUTION_TEMPLATE, "utf8").replace(/\{\{(\w+)\}\}/g, (whole, key) => tokens[key] ?? whole));
+    writeFileSync(constitution, readFileSync(constitutionTemplateFor(network), "utf8").replace(/\{\{(\w+)\}\}/g, (whole, key) => tokens[key] ?? whole));
   }
   return { version: kitVersion(kit), constitution: write ? "written" : "kept", removed };
 }

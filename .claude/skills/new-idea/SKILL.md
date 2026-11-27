@@ -14,10 +14,12 @@ is grown with `pnpm grow` (see "Grow an idea that exists" below), never by copyi
 1. Get a short lowercase name (letters and digits, one hyphen between words), and whether it is only a
    written idea (`--stage spark`: `idea.md` and Spec Kit, no code, so no `--platforms`) or code. Default to web
    with Supabase; add `ios` and `android` only when the idea needs them, because every platform is implemented separately.
+   If the app must make no network call at all (it runs a local model, say), use `--network none`: it
+   implies `--backend none`, and `pnpm verify` then fails on any network permission, API or dependency.
 2. Create it:
 
    ```bash
-   pnpm new <name> [--platforms web,ios,android] [--stage prototype] [--backend supabase|none] [--title "Name"]
+   pnpm new <name> [--platforms web,ios,android] [--stage prototype] [--backend supabase|none] [--network online|none] [--title "Name"]
    pnpm install
    ```
 

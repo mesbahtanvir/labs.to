@@ -6,7 +6,7 @@
 //   pnpm verify <idea> [...]     exactly these ideas
 //   pnpm verify --all            everything
 //   pnpm verify --base <ref>     what changed since <ref>
-//   pnpm verify --only web,supabase   restrict the kinds of checks
+//   pnpm verify --only web,supabase   restrict the kinds of checks (offline = the no-network guard of a `network: none` idea)
 //   pnpm verify --keep           leave the throwaway Supabase stack, the verify simulator and emulator running
 //   pnpm verify --cleanup        stop leftover throwaway stacks, the verify simulator and emulator
 //
@@ -20,7 +20,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { defaultBase, isGitRepo, readStamp, treeOf, worktreeTree, writeStamp } from "./lib/git.mjs";
-import { APPS_DIR, ROOT, TYPE_TARGETS, loadIdea, loadIdeas } from "./lib/manifest.mjs";
+import { APPS_DIR, ROOT, TYPE_TARGETS, loadIdea, loadIdeas, networkOf } from "./lib/manifest.mjs";
+import { mergedManifestViolations, offlineViolations } from "./lib/offline.mjs";
 import { run } from "./lib/exec.mjs";
 import { bootVerifySimulator, generateProject, iosPreflight, lintSwift, shutdownVerifySimulators, xcodebuild } from "./lib/ios.mjs";
 import { androidPreflight, bootVerifyEmulator, gradle, shutdownVerifyEmulator } from "./lib/android.mjs";
@@ -46,7 +47,7 @@ const { values, positionals } = parseArgs({
 });
 
 if (values.help) {
-  console.log(`usage: pnpm verify [idea...] [--all] [--base <ref>] [--only web,ios,android,supabase] [--keep] [--cleanup] [--no-stamp]
+  console.log(`usage: pnpm verify [idea...] [--all] [--base <ref>] [--only web,ios,android,supabase,offline] [--keep] [--cleanup] [--no-stamp]
        pnpm verify --check-stamp <commit|tree>   (used by the pre-push hook)`);
   process.exit(0);
 }
@@ -170,13 +171,14 @@ const plan = computePlan({ base, only: positionals.length > 0 ? positionals : nu
 if (plan.invalid) finish(treeBefore, scope); // already reported by the manifests step
 if (plan.warning) console.log(`\nwarning: ${plan.warning}`);
 
-const kinds = new Set(values.only ? values.only.split(",").map((s) => s.trim()) : ["supabase", "web", "ios", "android"]);
+const kinds = new Set(values.only ? values.only.split(",").map((s) => s.trim()) : ["offline", "supabase", "web", "ios", "android"]);
 const forIdea = (kind, idea) => plan.result[kind].filter((e) => e.idea === idea);
 const names = [...new Set(Object.values(plan.result).flatMap((entries) => entries.map((e) => e.idea)))].sort();
 
 if (names.length === 0) console.log("\nnothing affected: no active idea is touched by this change");
 
 for (const idea of names) {
+  if (kinds.has("offline")) verifyOffline(idea);
   if (kinds.has("supabase")) for (const e of forIdea("supabase", idea)) verifySupabase(e);
   if (kinds.has("web")) for (const e of forIdea("web", idea)) verifyWeb(e);
   if (kinds.has("ios")) for (const e of forIdea("ios", idea)) verifyIos(e);
@@ -232,6 +234,7 @@ function verifyAndroid({ idea, path }) {
   step(unit, "unit tests", () => gradle({ dir, tasks: ["testDebugUnitTest"] }));
   step(unit, "android lint", () => gradle({ dir, tasks: ["lintDebug"] }));
   step(unit, "build", () => gradle({ dir, tasks: ["assembleDebug", "assembleDebugAndroidTest"] }));
+  if (networkOf(loadIdea(idea).manifest) === "none") step(unit, "no network permission", () => verifyMergedManifest(dir));
 
   // One verify emulator exists for the whole machine, so verifies take turns on it.
   let release = null;
@@ -247,6 +250,23 @@ function verifyAndroid({ idea, path }) {
     if (emulator?.ok && !values.keep) shutdownVerifyEmulator();
     release?.();
   }
+}
+
+// An idea with `network: none` makes no network call at all. The source scan is cheap, so it
+// runs first; Android's merged manifest (what libraries add too) is checked after its build.
+function verifyOffline(idea) {
+  const { dir, manifest } = loadIdea(idea);
+  if (networkOf(manifest) !== "none") return;
+  step(`${idea}/offline`, "no network", () => {
+    const found = offlineViolations(dir, manifest);
+    return { ok: found.length === 0, out: found.map((f) => `${f.file}${f.line ? `:${f.line}` : ""}  ${f.rule}`).join("\n") };
+  });
+}
+
+function verifyMergedManifest(androidDir) {
+  const { found, violations } = mergedManifestViolations(androidDir);
+  if (found === 0) return { ok: false, out: "no merged manifest found under app/build/intermediates; the build output is not where tooling/lib/offline.mjs looks" };
+  return { ok: violations.length === 0, out: violations.map((v) => `${v.file}  ${v.rule}`).join("\n") };
 }
 
 function verifySupabase({ idea }) {

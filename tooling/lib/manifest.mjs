@@ -14,6 +14,11 @@ export const TEMPLATES_DIR = join(ROOT, "templates");
 export const PLATFORMS = ["web", "ios", "android"];
 export const STAGES = ["spark", "prototype", "alpha", "live", "archived"];
 export const BACKENDS = ["supabase", "none"];
+// `none` is a promise to users, not just "no server": the app makes no network call at all
+// (it runs a local model, for example). `pnpm verify` enforces it (tooling/lib/offline.mjs).
+// The field is optional; an idea that does not say is `online`.
+export const NETWORKS = ["online", "none"];
+export const networkOf = (manifest) => manifest?.network ?? "online";
 
 // Where `supabase gen types` output is committed, per platform, relative to
 // apps/<idea>/<platform>/. The CLI cannot emit Kotlin: Android models are
@@ -32,7 +37,7 @@ export const TEST_STAGES = ["alpha", "live"];
 // so a prototype can not be released. Promote it first.
 export const RELEASE_STAGES = ["alpha", "live"];
 
-const KNOWN_KEYS = ["name", "title", "stage", "platforms", "backend", "owner", "bundle_id"];
+const KNOWN_KEYS = ["name", "title", "stage", "platforms", "backend", "network", "owner", "bundle_id"];
 // Words of lowercase letters and digits with one hyphen between them. The name becomes a folder,
 // a package, a Docker project, a release tag and a hosted project, and is split into words for
 // the default title, so "a--b" and "a-" are not names.
@@ -157,6 +162,12 @@ export function validateManifest(m, dirName, dir) {
     errors.push(`backend must be one of ${BACKENDS.join(", ")} (got ${JSON.stringify(m.backend)})`);
   } else if (m.backend === "supabase" && m.stage !== "spark" && !existsSync(join(dir, "supabase", "config.toml"))) {
     errors.push(`backend is supabase but apps/${dirName}/supabase/config.toml does not exist`);
+  }
+
+  if (m.network !== undefined && !NETWORKS.includes(m.network)) {
+    errors.push(`network must be one of ${NETWORKS.join(", ")} (got ${JSON.stringify(m.network)})`);
+  } else if (m.network === "none" && m.backend !== "none") {
+    errors.push(`network: none means no network call at all, so backend must be none (got ${JSON.stringify(m.backend)})`);
   }
 
   if (!existsSync(join(dir, "idea.md"))) errors.push("missing idea.md");

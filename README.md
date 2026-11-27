@@ -16,7 +16,7 @@ place where quality is decided.
 
 ```
 apps/<idea>/
-  idea.yaml        source of truth: name, stage, platforms, backend, owner, bundle_id
+  idea.yaml        source of truth: name, stage, platforms, backend, network, owner, bundle_id
   idea.md          problem, hypothesis, success metric, kill criteria
   .specify/        Spec Kit: this idea's constitution (memory/), plus the kit's scripts and templates
   .claude/skills/  the Spec Kit commands (speckit-specify, speckit-plan, ...) as skills for Claude
@@ -62,6 +62,7 @@ pnpm new my-idea                          # web + supabase, stage: prototype
 pnpm new my-idea --platforms web,ios,android   # any mix of platforms
 pnpm new my-idea --stage spark            # idea.md and Spec Kit, no code
 pnpm new my-idea --backend none           # no Supabase (default is supabase)
+pnpm new my-idea --platforms ios --network none   # an app that makes no network call at all
 ```
 
 A name is kebab-case: lowercase letters and digits with one hyphen between words, 3 to 40
@@ -105,6 +106,24 @@ Everything lives in Gradle, so there is no generated project to protect. Version
 pinned in `gradle/libs.versions.toml` and `gradle/wrapper/`.
 
 Fill in `apps/my-idea/idea.md`, specify the first feature, build it, then verify and push.
+
+### An app that makes no network call
+
+`--network none` is a promise to users, for apps that run a local model or keep everything on
+the device: **no network call at all**, not just no server of our own. It implies `--backend none`
+(asking for both a backend and `none` is refused, and `pnpm grow` will not add one later), writes
+`network: none` in `idea.yaml`, and starts the idea from an offline constitution (principle IV
+is "No Network, Ever", and there is no schema contract).
+
+`pnpm verify` keeps the promise, as a script (`tooling/lib/offline.mjs`), in a step named `no network`:
+a `supabase/` folder, a network permission or cleartext setting in an Android manifest, a
+networking or telemetry dependency, a networking API (`URLSession`, `Network.framework`, OkHttp,
+`HttpURLConnection`, `fetch`, `WebSocket`, ...) or an App Transport Security setting. After the
+Android build it also reads the **merged** manifest, which includes permissions a library brought in,
+and fails on `INTERNET`. A static scan cannot prove a negative, so it is a tripwire, not a
+proof: mark a line that is deliberately fine with `labs:allow-network`. Test files are not scanned.
+Not covered yet: native libraries that open sockets themselves, and a model downloaded at run time
+by a library (the constitution forbids both).
 
 ### Grow an idea that exists
 
@@ -419,6 +438,12 @@ pre-push hook.
   not support TS 7; `eslint ^9` because the plugins behind `eslint-config-next`
   do not declare ESLint 10 support. ESLint 9 is end-of-life upstream, so revisit
   when those plugins widen their ranges.
+- **`network: none` is its own field, not `backend: none`.** "No server of ours" and "no network
+  call at all" are different promises: an app with no backend can still phone home through an SDK.
+  The field is optional (absent means `online`), requires `backend: none`, and turns on the
+  `no network` guard in `verify` and the offline constitution. The guard is a static scan plus the
+  merged Android manifest (see "An app that makes no network call"), so it catches accidents, not a
+  determined bypass.
 - **Supabase is the default backend, one project per idea.** The schema is the
   contract between platforms: migrations are the source, and client types are
   generated from the local database (`pnpm types`). The CLI generates TypeScript
