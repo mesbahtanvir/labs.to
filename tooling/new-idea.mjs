@@ -2,7 +2,7 @@
 // Scaffolds a new idea: apps/<name>/{idea.yaml, idea.md, .specify/, <platform>/..., supabase/...}
 //
 //   pnpm new <name> [--platforms web,ios,android] [--stage prototype]
-//                   [--backend supabase|none] [--title "Pretty Name"] [--owner <who>]
+//                   [--backend supabase|none] [--network online|none] [--title "Pretty Name"] [--owner <who>]
 //
 // `--stage spark` is an idea on paper: idea.md and Spec Kit, no platforms (asking for both is
 // refused). `pnpm grow` gives it its first platform later.
@@ -19,8 +19,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { APPS_DIR, BACKENDS, NAME_RULE, STAGES, TEMPLATES_DIR, isValidName, loadIdea } from "./lib/manifest.mjs";
-import { TITLE_RULE, createIdea, defaultTitle, nextSteps, parsePlatforms, platformsProblem, slotApiPort, sparkProblem, titleIsInert } from "./lib/scaffold.mjs";
+import { APPS_DIR, BACKENDS, NAME_RULE, NETWORKS, STAGES, TEMPLATES_DIR, isValidName, loadIdea } from "./lib/manifest.mjs";
+import { TITLE_RULE, createIdea, offlineBackendProblem, defaultTitle, nextSteps, parsePlatforms, platformsProblem, slotApiPort, sparkProblem, titleIsInert } from "./lib/scaffold.mjs";
 
 const fail = (msg) => {
   console.error(`error: ${msg}`);
@@ -41,6 +41,7 @@ const { positionals, values } = parseArgs({
     platforms: { type: "string" },
     stage: { type: "string" },
     backend: { type: "string" },
+    network: { type: "string" },
     title: { type: "string" },
     owner: { type: "string" },
     help: { type: "boolean", short: "h" },
@@ -49,7 +50,7 @@ const { positionals, values } = parseArgs({
 
 if (values.help || positionals.length === 0) {
   console.log(
-    `usage: pnpm new <name> [--platforms web,ios,android] [--stage ${STAGES.join("|")}] [--backend ${BACKENDS.join("|")}] [--title "Name"] [--owner who]`,
+    `usage: pnpm new <name> [--platforms web,ios,android] [--stage ${STAGES.join("|")}] [--backend ${BACKENDS.join("|")}] [--network ${NETWORKS.join("|")}] [--title "Name"] [--owner who]`,
   );
   process.exit(values.help ? 0 : 1);
 }
@@ -61,7 +62,12 @@ if (existsSync(join(APPS_DIR, name))) fail(`apps/${name} already exists. To add 
 const stage = values.stage ?? "prototype";
 if (!STAGES.includes(stage)) fail(`stage must be one of ${STAGES.join(", ")}`);
 
-const backend = values.backend ?? "supabase";
+const network = values.network ?? "online";
+if (!NETWORKS.includes(network)) fail(`network must be one of ${NETWORKS.join(", ")}`);
+
+// An app that makes no network call has no backend to talk to.
+const backend = values.backend ?? (network === "none" ? "none" : "supabase");
+if (network === "none" && backend !== "none") fail(offlineBackendProblem(backend));
 if (!BACKENDS.includes(backend)) fail(`backend must be one of ${BACKENDS.join(", ")}`);
 if (backend === "supabase" && !existsSync(join(TEMPLATES_DIR, "supabase"))) fail("templates/supabase/ is missing");
 
@@ -73,12 +79,12 @@ const title = values.title ?? defaultTitle(name);
 if (!titleIsInert(title)) fail(TITLE_RULE);
 const owner = values.owner ?? gitUserName();
 
-const { slot, specKit } = createIdea({ name, title, stage, platforms, backend, owner });
+const { slot, specKit } = createIdea({ name, title, stage, platforms, backend, network, owner });
 
 const { errors } = loadIdea(name);
 if (errors.length > 0) fail(`generated idea is invalid:\n  - ${errors.join("\n  - ")}`);
 
-console.log(`Created apps/${name} (${stage}; ${platforms.join(", ") || "no platforms yet"}; backend: ${backend}; Spec Kit ${specKit.version})\n`);
+console.log(`Created apps/${name} (${stage}; ${platforms.join(", ") || "no platforms yet"}; backend: ${backend}${network === "none" ? "; network: none" : ""}; Spec Kit ${specKit.version})\n`);
 console.log("Next:");
 const steps = nextSteps({
   name,

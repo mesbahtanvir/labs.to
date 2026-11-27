@@ -23,6 +23,7 @@ import {
   isValidBundleId,
   isValidName,
   loadIdea,
+  networkOf,
 } from "./manifest.mjs";
 import { installSpecKit } from "./speckit.mjs";
 
@@ -162,6 +163,10 @@ export const sparkProblem = (name, stage, platforms) =>
     ? `a spark is an idea on paper (idea.md and Spec Kit, no code), so it takes no platforms. Leave --platforms out and add them when you start building (pnpm grow ${name} --platforms ${platforms.join(",")}), or start with code: --stage prototype`
     : null;
 
+/** Why an idea that makes no network call can not have this backend, or a message for the caller to show. */
+export const offlineBackendProblem = (backend) =>
+  `--network none means the app makes no network call at all, so it can not have the ${backend} backend. Use --backend none`;
+
 /** `--platforms web,ios` as a list. */
 export const parsePlatforms = (text) => text.split(",").map((p) => p.trim()).filter(Boolean);
 
@@ -177,14 +182,14 @@ export function platformsProblem(platforms, templatesDir = TEMPLATES_DIR) {
 // ---- the manifest --------------------------------------------------------------
 
 /** The idea.yaml a new idea starts with. */
-export function manifestText({ name, title, stage, platforms, backend, owner, bundleId = defaultBundleId(name) }) {
+export function manifestText({ name, title, stage, platforms, backend, network = "online", owner, bundleId = defaultBundleId(name) }) {
   return `# Source of truth for this idea. CI, releases and tooling all read this file.
 name: ${name}
 title: ${JSON.stringify(title)}
 stage: ${stage}          # ${STAGES.join(" | ")}
 platforms: [${platforms.join(", ")}]
 backend: ${backend}      # ${BACKENDS.join(" | ")}
-owner: ${JSON.stringify(owner)}
+${network === "none" ? `network: none      # no network call at all; \`pnpm verify\` enforces it\n` : ""}owner: ${JSON.stringify(owner)}
 bundle_id: ${bundleId}   # iOS bundle id and Android applicationId
 `;
 }
@@ -296,9 +301,10 @@ function schemaIsTemplates(ideaDir, tokens, templatesDir) {
  * platforms is refused here too (it throws, before anything is written).
  * @returns {{ dir: string, slot: number | null, specKit: object }}
  */
-export function createIdea({ name, title, stage, platforms, backend, owner, timestamp }, { appsDir = APPS_DIR, templatesDir = TEMPLATES_DIR } = {}) {
+export function createIdea({ name, title, stage, platforms, backend, network = "online", owner, timestamp }, { appsDir = APPS_DIR, templatesDir = TEMPLATES_DIR } = {}) {
   const problem = sparkProblem(name, stage, platforms);
   if (problem) throw new Error(problem);
+  if (network === "none" && backend !== "none") throw new Error(offlineBackendProblem(backend));
   // Claim this idea's block of local Supabase ports before templates are rendered,
   // because client env files need the API port.
   const slot = backend === "supabase" && stage !== "spark" ? freePortSlot(appsDir) : null;
@@ -306,9 +312,9 @@ export function createIdea({ name, title, stage, platforms, backend, owner, time
 
   const dir = join(appsDir, name);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "idea.yaml"), manifestText({ name, title, stage, platforms, backend, owner, bundleId: tokens.bundle_id }));
+  writeFileSync(join(dir, "idea.yaml"), manifestText({ name, title, stage, platforms, backend, network, owner, bundleId: tokens.bundle_id }));
   writeFileSync(join(dir, "idea.md"), render(readFileSync(join(templatesDir, "idea.md"), "utf8"), tokens));
-  const specKit = installSpecKit(dir, { name, title });
+  const specKit = installSpecKit(dir, { name, title, network });
 
   for (const p of platforms) stampPlatform(dir, p, backend, tokens, templatesDir);
   if (slot !== null) stampSupabase(dir, tokens, slot, templatesDir);
@@ -348,6 +354,7 @@ export function planGrowth(name, { platforms = [], backend = null, force = false
 
   if (backend !== null && !BACKENDS.includes(backend)) errors.push(`backend must be one of ${BACKENDS.join(", ")}`);
   const backendAfter = backend !== null && BACKENDS.includes(backend) ? backend : m.backend;
+  if (networkOf(m) === "none" && backendAfter !== "none") errors.push(offlineBackendProblem(backendAfter).replace("--network none", "this idea has network: none, which"));
   const stackDir = join(dir, "supabase");
   const hasStack = existsSync(join(stackDir, "config.toml"));
   if (backendAfter !== "supabase" && m.backend === "supabase" && hasStack) {

@@ -43,6 +43,11 @@ that keep it uniform.
   because the backend overlay would replace an edited file, `--force` is the user's decision,
   not a way past the message. Both commands share `tooling/lib/scaffold.mjs`: change the
   stamping there, never in one command.
+- **`network: none` is a promise `verify` enforces.** An idea with it makes no network call at all
+  (no backend, no SDK that phones home, no model downloaded at run time). Never silence the
+  `no network` step, remove the field or add a networking dependency to get past it: if the idea
+  needs the network, that is a decision for the user and an amendment of its constitution. A line
+  that is deliberately fine is marked `labs:allow-network`, and you say why.
 - **Every idea is its own Spec Kit project, and a feature starts as a spec.** `pnpm new` installs
   the kit in `apps/<idea>/` (`.specify/`, `.claude/skills/speckit-*`) and writes the idea's
   constitution. A change in behavior goes through that idea's `speckit-specify`, `speckit-plan`,
@@ -124,7 +129,7 @@ that keep it uniform.
 ## Commands
 
 ```bash
-pnpm new <name> [--platforms web,ios,android] [--stage prototype] [--backend supabase|none] [--title "Name"]
+pnpm new <name> [--platforms web,ios,android] [--stage prototype] [--backend supabase|none] [--network online|none] [--title "Name"]
 pnpm grow <idea> [--platforms ios,android] [--backend supabase] [--force]   # add platforms or the backend to an idea that exists
 pnpm verify [idea...] [--all] [--keep] [--cleanup]   # the local gate; writes the stamp on success
 pnpm sb <idea> start|stop|status|db reset|test db|... # pinned Supabase CLI for one idea
